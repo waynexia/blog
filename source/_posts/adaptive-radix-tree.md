@@ -10,6 +10,7 @@ ART 是一个能提供高效点的增删查改，以及范围查询的索引结�
 {%  image
     url="./1.png"
     title="Compare to HashTable"
+    width="50%"
 %}
 
 # 基数树
@@ -18,6 +19,7 @@ ART 是一个能提供高效点的增删查改，以及范围查询的索引结�
 {%  image
     url="2.png"
     title="An ART"
+    width="50%"
 %}
 
 # Adaptive Node
@@ -25,6 +27,7 @@ ART 使用能动态调节大小（自适应 adaptive）的节点作为内部树�
 
 {%  image
     url="3.png"
+    width="70%"
 %}
 
 虽然理论上说能够使用动态数组作为内部节点，但是这样会涉及到频繁的内存分配释放。为了解决这个问题，ART将节点的大小固定为了四种。分别为4、16、48以及256。并且每个节点根据大小，在具体的结构以及行为上会有细微不同
@@ -37,6 +40,7 @@ ART 使用能动态调节大小（自适应 adaptive）的节点作为内部树�
 {%  image
     url="4.png"
     title="Node4 and Node16"
+    width="40%"
 %}
 
 Node4 与 Node16 在结构上面是类似的，都是由一对数量相等的数组组成，其中一个存放键，另一个存放指针。
@@ -45,6 +49,7 @@ Node4 与 Node16 在结构上面是类似的，都是由一对数量相等的数
 {%  image
     url="5.png"
     title="Node48"
+    width="40%"
 %}
 
 Node48 与前两种一样也是由两个数组组成，不过存储键的数组有256的容量，可以直接通过下标进行索引。
@@ -53,6 +58,7 @@ Node48 与前两种一样也是由两个数组组成，不过存储键的数组�
 {%  image
     url="6.png"
     title="Node256"
+    width="40%"
 %}
 
 Node256与Node48相比其实就是第二个数组的大小也来到了256，键与值有满射的关系，可以省略一次索引。
@@ -63,6 +69,7 @@ Node256与Node48相比其实就是第二个数组的大小也来到了256，键�
 {%  image
     url="7.png"
     title="Two ways of path compression"
+    width="70%"
 %}
 
 既然路径被压缩，那么在查找的时候也需要在比较 key 时进行相应的处理。文中将处理分为了两类。悲观的方式是节点储存一个长度不定的前缀值，在每次下降地时候使用这个值进行比较。乐观地方式是节点只储存被压缩地前缀地长度，在每次下降过程中直接跳过这个长度的 key 的处理，并在最后达到叶子节点时再比较 key 是否相等。文中的节点将这两种方式组合起来，在下降的时候按照前缀长度进行动态处理。
@@ -93,6 +100,7 @@ Node256与Node48相比其实就是第二个数组的大小也来到了256，键�
 {%  image
     url="8.png"
     title="Comparison of serval concurrency schemas"
+    width="70%"
 %}
 
 ## Optimistic Lock Coupling 
@@ -102,4 +110,4 @@ Node256与Node48相比其实就是第二个数组的大小也来到了256，键�
 则稍微复杂一点，它要求 writer 通过原子操作来保证 reader 不会出现脏读。这个方法也使用到了锁，不过仅针对 writer 提供互斥性，而读操作是 wait-free 并且与 Optimistic Lock Coupling 不同，是保证成功的。
 
 # Bench
-[HOT (SIGMOD 2018)](https://dbis-informatik.uibk.ac.at/sites/default/files/2018-06/hot-height-optimized.pdf) appendix A 有比较全面的 Cross Validation。TL; DR. 在数据密集查询比扫描多，写操作比重较多的情况下 ART 有很优秀的表现，纯扫表性能并不比 B-Tree 好。大量密集数据点查表现可以超过 HashTable，不过性能会受到数据分布的影响。
+在[HOT (SIGMOD 2018)](https://dbis-informatik.uibk.ac.at/sites/default/files/2018-06/hot-height-optimized.pdf) 的 appendix A 找到一个比较全面的 Cross Validation。TL; DR. 在数据密集查询比扫描多，写操作比重较多的情况下 ART 有很优秀的表现，纯扫表性能并不比 B-Tree 好。大量密集数据点查表现可以超过 HashTable，不过性能会受到数据分布的影响。
