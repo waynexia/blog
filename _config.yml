@@ -48,8 +48,8 @@ highlight:
   line_number: true
   auto_detect: false
   tab_replace: ''
-  wrap: true
-  hljs: false
+  wrap: false
+  hljs: true
 prismjs:
   enable: false
   preprocess: true
@@ -98,6 +98,16 @@ ignore:
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
 theme: flex-block
+
+# RSS Feed
+feed:
+  enable: true
+  type: atom
+  path: atom.xml
+  limit: 20
+  content_limit: 140
+  icon: https://github.com/waynexia.png
+  autodiscovery: true
 
 # Deployment
 ## Docs: https://hexo.io/docs/one-command-deployment
