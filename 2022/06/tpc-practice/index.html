@@ -24,7 +24,7 @@
 
   
 
-  <title>Paper Reading: CURP protocol | Wonderland</title>
+  <title>CeresDB 的单线程模型实践 (Rust China Conf 2022) | Wonderland</title>
 
   
     <link rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
@@ -34,10 +34,6 @@
     <link rel="shortcut icon" href="/favicon.ico">
   
 
-   
-    <!--mathjax latex数学公式显示支持-->
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   
 
   
@@ -110,18 +106,18 @@
     <div class="header-content">
       <div class="post-text layout-block">
         <div class="layout-margin">
-          <h1 class="title-wrap">Paper Reading: CURP protocol</h1>
+          <h1 class="title-wrap">CeresDB 的单线程模型实践 (Rust China Conf 2022)</h1>
           <h2 class="title-sub-wrap">
             <strong>Wayne</strong>
             <span>write on</span>
-            <time  class="article-date" datetime="2022-09-18T17:58:33.000Z" itemprop="datePublished">2022-09-18</time>
+            <time  class="article-date" datetime="2022-06-16T12:46:10.000Z" itemprop="datePublished">2022-06-16</time>
           </h2>
           <ul class="wrap-list dark">
   
 </ul>
           <ul class="wrap-list dark">
   
-    <li><a href="/tags/Paper-Reading/">🏷️ Paper Reading</a></li>
+    <li><a href="/tags/Rust/">🏷️ Rust</a></li>
   
 </ul>
         </div>
@@ -172,89 +168,78 @@
               const heti = new Heti('.heti');
               heti.autoSpacing();
             </script>
-          <p>论文名字是《Exploiting Commutativity For Practical Fast Replication》</p>
-<p>CURP全称Consistent Unordered Replication Protocol，主要是利用操作之间的相关性（Commutative）来实现局部乱序提交的协议。这里Commutative指的是不同操作记录之间是否可以交换执行顺序而不影响最终结果，比如<code>x=1</code>、<code>y=2</code>和<code>x=3</code>三条记录中<code>y=2</code>与其他两条都是无关的，满足Commutative可以乱序执行，而<code>x=1</code>与<code>x=3</code>之间有关系，需要一个确定的执行顺序。</p>
-<p>相比于其他的复制协议，CURP的特点是对于满足Commutative的记录可以以1 RTT的延时完成提交。</p>
-<h1 id="集群角色"><a href="#集群角色" class="headerlink" title="集群角色"></a>集群角色</h1><p>除了常见的<code>Client</code>，<code>Leader</code>，<code>Backup</code>之外CRUP中还引入了一个新的<code>Witness</code>角色。简单概括一下这些角色：</p>
+          <blockquote>
+<p>这篇是从 Rust China Conf 2022 的 talk 整理来的（校对听写转录稿好麻烦……</p>
+</blockquote>
+<p><strong>（还没校对完）</strong></p>
+<p>介绍一下单线程模式两个在生产中的例子，<a target="_blank" rel="noopener" href="https://github.com/waynexia/helixdb">HelixDB</a> 是一个Thread Per Core模型的KV存储，<a target="_blank" rel="noopener" href="https://github.com/ceresdb/ceresdb">CeresDB</a> 中也有部分逻辑在单线程模式下工作。</p>
+<h1 id="Examples"><a href="#Examples" class="headerlink" title="Examples"></a>Examples</h1><div class="heti heti--annotation">
+首先看一下CeresDB中的一个例子，在CeresDB中所有的写请求都由Write Worker组件来进行实际处理，上层的Insert之类的请求最后会转化为对数据的修改请求，并交给Write Worker执行，比如说插入数据或者更改表结构等等。同时也有一些后台处理归档的工作，比如说<ruby>压实<rt>compact</rt></ruby>或者<ruby>刷写<rt>flush</rt></ruby>。
+</div>
+
+<p>对以一张表来说，写操作本身就有互斥的属性，所以我们以表为单位，将每张表对应到一个Write Worker，一个Write Worker上可能会负责多个表，是一个一对多的关系，这张表的所有写操作都由对应的Worker来完成。默认是按照核数来初始化Write Worker，每个Write Worker之间的负载和资源都进行了隔离。包括Worker本身会独占一个线程，以及Worker所负责到的那些表涉及到的资源在逻辑上也是不共享的。Write Worker的主逻辑实际上就是不断地从一个channel中接收任务并执行。</p>
+<p>这样的操作能带来两个好处，首先对于每张表来说，后台的写入操作是串行化的，所以做一些简单的逻辑就能够避免写写冲突的问题，能够简化状态管理的代码。同时Write Worker将表以及表后所隐藏的资源都预先分配并独占，可以去减少资源竞争的情况。</p>
+<p>当然这个完全串行化是一个比较简单的场景，实际上还会有一些复杂的逻辑，比如说一些不关心写入顺序的操作就可以detach到后台来执行，忽略它与其他前台操作之间的顺序等。</p>
+<p>刚刚所说在目前我们大多数情况底下，虽然在逻辑上做了区分，但底下还是同一个物理资源，比如说同一块磁盘、同一块网卡之类的。在逻辑上独占，独占的可能是一个文件路径或者是一个SQL的链接，通过这个抽象能够减少上层资源互斥的逻辑，并且在物理资源拓展的时候能够很方便的Scale out，比如说简单的加磁盘、加网卡就行，因为已经做了逻辑资源的隔离，所以能够比较方便地去进行拓展。</p>
+<p>Image</p>
+<p>这是单线程模型在CeresDB中的一个应用场景，作为一个通用的手段，我简单总结了几点它能够带来的好处：</p>
 <ul>
-<li><code>Client</code><ul>
-<li>与<code>Witness</code>和<code>Leader</code>交互，对<code>Witness</code>的通信是广播的形式(同时与所有<code>Witness</code>通信)  </li>
-<li>自己也有一定的状态，主要是关于操作的执行情况的。</li>
+<li>首先在这种模式下，所有的状态只会在一个线程内被访问和修改，在编码的时候可以简化状态管理的逻辑。资源也是一样，各个资源在逻辑层面独立，能够减少资源的竞争开销。</li>
+<li>充分利用了Rust的协程特性，其实就是利用async/await来减少线程的上下文切换。可能之前是有一堆线程，并且线程数量是大于核数。操作系统就会对我们的线程进行调度，分时调度到不同的核上来执行。我们现在如果把所有的任务都已经预先分配到线程里面，就可以将线程的切换简化为一个协程的切换。并且由更理解具体使用情况的我们自己来代替操作系统进行调度。</li>
+<li>如果能够再进一步将这些工作线程与核心绑定起来，形成Thread Per Core的模式，还可以进一步提高CPU的亲和性以及Cache的命中率等。</li>
 </ul>
-</li>
-<li><code>Witness</code>  <ul>
-<li>CURP协议定义的角色，存在复数个实例，且实例之间对等  </li>
-<li>有存储能力来临时存储近期的操作记录，但不需要维护状态机（操作结果），就是一个WAL</li>
-<li>需要感知具体的操作内容并判断操作之间是否有可交换性(commutative)  </li>
-<li>实例间独立运作及决策，也独立于<code>Leader</code>/<code>Backup</code>。</li>
-</ul>
-</li>
-<li><code>Leader</code><ul>
-<li>集群主节点，有其他主备协议中常见的<code>Leader</code>的能力(维护状态机，答复读写请求，数据同步等)  </li>
-<li>同样需要感知具体操作并判断可交换性</li>
-<li>可以在把操作同步给<code>Backup</code>之前答复请求</li>
-<li>论文中叫<code>Master</code></li>
-</ul>
-</li>
-<li><code>Backup</code><ul>
-<li>普通的backup角色</li>
-</ul>
-</li>
-</ul>
-<p>在论文的正文部分中<code>Witness</code>都是作为一个独立的部署实例来讨论的，不过附录里也提到实践中也没必要将<code>Witness</code>单独部署，而是跟着<code>Leader</code>/<code>Backup</code>一起运作，只作为逻辑上的一个独立单元。所以一些RPC请求实际上是可以合并（比如<code>Client</code>同时请求<code>Leader</code>和与其在一起的<code>Witness</code>）或者是本地IPC（比如<code>Leader</code>/<code>Backup</code>请求对应的<code>Witness</code>）的。因此对于实际使用的时候来说<code>Witness</code>更像是CURP引入的新机制的一个概括抽象。</p>
-<h1 id="基本操作"><a href="#基本操作" class="headerlink" title="基本操作"></a>基本操作</h1><p>协议的具体内容可以从几个基本操作来说明</p>
-<h2 id="更新"><a href="#更新" class="headerlink" title="更新"></a>更新</h2><p>由<code>Client</code>发起，<code>Client</code>同时对<code>Leader</code>及<strong>所有</strong><code>Witnesses</code>发出请求，根据这个请求与之前的请求是否无关(可交换，commutative)有两种情况：  </p>
-<ul>
-<li>如果无关，那么<code>Leader</code>和<strong>所有</strong><code>Witnesses</code>都会accept这个请求。<code>Client</code>在收到<strong>全部</strong>的accept答复之后可以当这个请求已完成。</li>
-<li>如果<code>Leader</code>或任意一个 <code>Witness</code> 认为有关(not commutative)，<code>Client</code>都需要要求<code>Leader</code>进行一次sync，将状态与<code>Backups</code>进行同步后答复<code>Client</code>。<code>Client</code>可以依据这个sync请求的答复将请求完成，这种情况下<code>Witness</code>的答复没有影响。</li>
-</ul>
-<p>也就是说，一次操作从<code>Client</code>发起到完成一共有三个状态：<code>Proposed</code>，<code>Unsynced</code>和<code>Synced</code>。<code>Client</code>会对除了<code>Backup</code>之外的所有节点发起请求，在上面的第一种情况下成为<code>Unsynced</code>，此时<code>Client</code>已经可以认为该操作完成，<code>Leader</code>也可以把操作应用到状态机上。<code>Leader</code>应用<code>Unsynced</code>操作的过程叫做“推测执行（speculative execution）”。<code>Unsynced</code>的操作会在一下次收到sync请求时往<code>Backups</code>进行同步，同步完成的操作称为<code>Synced</code>。而在上面的第二种情况下操作会跳过<code>Unsynced</code>这一步。</p>
-<p>但是从<code>Leader</code>视角看一个操作只要<code>Leader</code>认为是commutative的它就会应用到状态机，但这个操作可能会被<code>Witness</code>拒绝（认为是not commutative）。这时候需要依赖<code>Client</code>来发起sync请求，要求<code>Leader</code>与<code>Backups</code>进行同步。</p>
-<h2 id="Leader-故障恢复"><a href="#Leader-故障恢复" class="headerlink" title="Leader 故障恢复"></a>Leader 故障恢复</h2><p>新 <code>Leader</code> 的产生/恢复有两步，首先同步 <code>Backup</code> 的状态，然后随便挑一个 <code>Witness</code> 来重放没同步到 <code>Backup</code> 中的操作。</p>
-<p>同步<code>Backup</code>状态就获得了所有<code>Synced</code>的操作，而从上面的更新流程可以知道<code>Unsynced</code>的操作存在于<strong>全部</strong>的<code>Witnesses</code>中，所以这里随便挑一个 <code>Witness</code> 都有全部所需的信息。另外<code>Unsynced</code>操作在不同的<code>Witnesses</code>上所提交的顺序可能不一样，所以CURP要求只有满足commutative可以乱序执行的操作才可以推测执行。</p>
-<p>另外还需要解决<code>Backup</code>和<code>Witness</code>可能存在重复记录的问题，如果将已经是<code>Synced</code>的操作再进行重放是会导致状态错误的。因此CURP需要保证每个操作只能执行一次，简单来说就是让<code>Client</code>给每个操作加上一个<code>RPC ID</code>。</p>
-<blockquote>
-<p>To avoid duplicate executions of the requests that are already replicated to backups, CURP relies on exactly-once semantics provided by RIFL, which detects already executed client requests and avoids their re-execution</p>
-</blockquote>
-<p>当然如果是一个 <code>Backup</code> 成为新 <code>Leader</code> 就可以跳过第一步。</p>
-<h2 id="读取"><a href="#读取" class="headerlink" title="读取"></a>读取</h2><p><code>Client</code> 可以直接从 <code>Leader</code> 读，不过需要这次读操作也与其他 <code>Unsynced</code> 的操作无关，否则需要先 sync 一下，因为对同一个内容的读和写操作是无法乱序执行的。而在<code>Leader</code>视角看，推测执行的操作不一定在重启/变更Leader之后还存在（在<code>Leader</code>应用到状态机后，但是被<code>Witnesses</code>记录下来之前发生crash），所以读推测执行的内容也需要检查commutative。所以这种读操作与更新操作的区别只有(1)不涉及 <code>Witness</code> (2)不会影响 <code>Leader</code> 的状态机，因此不需要被记录。</p>
-<p><code>Client</code> 也可以从 <code>Backup</code> 读，不过读之前需要先向一个 <code>Witness</code> 询问这个操作是否 commutative。只有在得到肯定答复的情况下才可以读 <code>Backup</code>，否则还是只能从 <code>Leader</code> 读。前面要求一个操作被记录到所有 <code>Witnesses</code> 也考虑到了这里能够随意请求 <code>Witness</code> 来询问 commutative。</p>
-<p>同时因为<code>Backups</code>之间的状态可能因为同步进度不同而出现差异，为了从任意一个 <code>Backup</code> 都能读到同样的结果，<code>Backups</code> 之间还需要感知互相的同步状态(即一个操作是否被所有的 <code>Backups</code> 同步完成)。</p>
-<blockquote>
-<p>even if a value is replicated to some of backups, the value may get lost if the master crashes and a new master recovers from a backup that didn’t receive the new value. A simple solution for this problem is that backups don’t allow reading values that are not yet fully replicated to all backups.</p>
-</blockquote>
-<h2 id="GC"><a href="#GC" class="headerlink" title="GC"></a>GC</h2><p>这里讨论<code>Witness&#39; records</code>和<code>RPC ID</code>两个资源的回收。</p>
-<p>从前面可知，<code>Witness</code> 只有在新记录与现在所有记录都无关的情况下才能 accept。所以为了提高成功率 <code>Witness</code> 必须尽快丢掉不必要的数据(被 <code>Leader</code> 同步到了 <code>Backups</code> 上，即synced的数据)。在 CURP 中 <code>Leader</code> 会给 <code>Witness</code> 发 GC 指令，告诉 <code>Witness</code> 哪些操作已经完成了同步并可以丢弃。</p>
-<p>在 <code>Witness GC</code> 和更之前的故障恢复环节都需要对操作记录进行标识，CPUP 使用的是 <code>RIFL</code> 中的 <code>RPC ID</code> 来完成。因为这个 ID 是 Client 分配的，所以无法使用累进确认的方式而必须对每个 ID 都进行记录。此外 CURP 还对 <code>RIFL</code> 做了一些改动，在论文的 <em>附录§C.1</em> 节有展开，主要是为了适配 Witness 提供的 Recovery。</p>
-<h1 id="进阶操作"><a href="#进阶操作" class="headerlink" title="进阶操作"></a>进阶操作</h1><p>从更新操作的步骤可以看到 <code>Client</code> 向 <code>Witnesses</code> 写数据以及 <code>Leader</code> 向 <code>Backups</code> 同步状态都是有全同步的要求的，即要求所有的请求对象都完成才能算完成，而后面的故障恢复和读取操作也都用到了这一点。</p>
-<p>这样操作在网络分区或者单节点处理慢之类情况下的可用性和性能是比较让人担心的。论文在附录还展开了另一种方法，可以让 <code>Client</code> 向 <code>Witnesses</code> 写数据时只得到<em>超大多数(superquorum)</em> <code>Witnesses</code> 的答复就行。这里“超大多数”的计算方式是 $$superquorum=f+\lceil f/2 \rceil + 1$$，其中<code>f</code>是能容忍多少节点挂掉的数量。这里比传统多数派还多了一个“少数派的大多数”的原因是为了故障恢复时剩下的 <code>Witnesses</code> 之间还能保持多数派。</p>
-<blockquote>
-<p>The reason why CURP needs a superquorum instead of a simple majority is to ensure commutativity of replays from witnesses during recovery</p>
-</blockquote>
-<p>而相应的，<code>Leader</code>在恢复的时候以及<code>Client</code>在读<code>Backup</code>之前查询的时候都需要收集多数派<code>Witnesses</code>的结果。其实就是牺牲了一些读时的便利性来优化写的操作。</p>
-<p>此外 <code>Leader</code> 向 <code>Backups</code> 同步数据也是类似，只要同步到多数派上，在恢复的时候选最新的。在 <code>Client</code> 读 <code>Backup</code> 的时候也选多数派和最新任期，类似 Raft 的那一套操作。</p>
-<h1 id="一些证明"><a href="#一些证明" class="headerlink" title="一些证明"></a>一些证明</h1><p>论文在 <em>附录§A</em> 里面简单证明了一下 <code>Durability</code>, <code>Consistency</code> 和 <code>Linearizability</code> 几个关键特性，不过都是基于基本操作的版本（全同步写）。这里也洗一下稿。</p>
-<p>先回顾一下几个操作时的规则：</p>
-<ul>
-<li><code>Client</code> 只有两种情况下可以完成一个操作：该操作被<strong>所有</strong> <code>Witnesses</code> 记录 <em>或</em> 该操作被<strong>所有</strong> <code>Backups</code> 持久化(即被 <code>Leader</code> 接收)<blockquote>
-<p>from §3.2.1, a client only completes an update operation if (1) it is recorded in all f witnesses or (2) it is replicated to f backups.</p>
-</blockquote>
-</li>
-<li>一个未同步(unsynced)的操作必须与所有其他未同步的操作无关(commutative)<blockquote>
-<p>a completed unsynced operation must be individually commutative with all preceding operations that are not synced yet.</p>
-</blockquote>
-</li>
-<li>如果 <code>Leader</code> 要答复一个不可交换(not commutative)的操作，需要先与 <code>Backup</code> 进行一次同步(sync)<blockquote>
-<p>a master must sync before responding if the current operation is not commutative with any other existing (preceding) unsynced operations.</p>
-</blockquote>
-</li>
-</ul>
-<h2 id="Durability"><a href="#Durability" class="headerlink" title="Durability"></a>Durability</h2><p>所有的操作至少会存在于所有 <code>Backups</code> (synced) 或所有 <code>Witnesses</code> (unsynced) 上，所以恢复的时候找一个 <code>Backup</code> 加上一个 <code>Witness</code> 就能拿到所有的信息。</p>
-<h2 id="Consistency"><a href="#Consistency" class="headerlink" title="Consistency"></a>Consistency</h2><p>synced 的操作存在在 Backup 上，并通过 ID 的方式防止重复执行。unsynced 的操作存在在 Witness 上，并且可以以任意顺序重放。</p>
-<p>不过论文好像有一个内容没讲，就是 <code>Witness</code> 上记录的操作不一定最终会执行（比如<code>Client</code>发起sync之前发生crash），所以 <code>Witness</code> 是需要有机制去确认一个记录下来的操作是有效的。我觉得可以让 <code>Leader</code> 定期给 <code>Witness</code> 同步这个信息（比如将这个也作为 sync 的一步），同时 <code>Witness</code> 在恢复期间不提供未被确认的操作。</p>
-<h2 id="Linearizability"><a href="#Linearizability" class="headerlink" title="Linearizability"></a>Linearizability</h2><p>还是从前面的规则推导。如果一个写入在只被部分 <code>Witness</code> 记录到的时候就crash，重启之后的 <code>Leader</code> 可能不会有这个信息，但是这时候 <code>Client</code> 也不会认为这个操作已完成，因为没收到所有 <code>Witness</code> 的答复。对于<code>Client</code>认为已经完成的操作再去读的时候 <code>Leader</code> 能保证线性一致。读 <code>Backup</code> 的流程论文的图4也稍微涉及到了线性一致的几种情况。</p>
-<p>不过这里只是文字论述，也没有什么并法内容，作为证明感觉还是有点单薄，但是也想不到什么反面例子……</p>
-<h1 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h1><p>这篇文章省略了论文中的一些内容，比如一些实现上的经验细节，分区的处理等等。看下来觉得基本思想还好理解，论文说这是一个通用的优化手段，但是怎么变成一个真正的优化感觉还是要在实现的时候多做些微操……</p>
+<p>Image</p>
+<h1 id="Pros-amp-Cons"><a href="#Pros-amp-Cons" class="headerlink" title="Pros. &amp; Cons."></a>Pros. &amp; Cons.</h1><p>不过需要注意的是，这里所提到的各种方法都有适用场景，接下来详细讨论一下关于这种方式具体的优势和局限性。</p>
+<h2 id="It-gives"><a href="#It-gives" class="headerlink" title="It gives"></a>It gives</h2><p>接下来详细介绍一下它能带来的几点优势，首先是调度模型方面，从之前提的由操作系统进行的抢占式调度，变为了各个协程之间进行的协作式调度。</p>
+<p>来对比一下，左边是一个抢占式调度的一种常见的情况。产生这种情况其实就是我们把若干个任务同时放进一个线程去执行，可能这些任务之间是会涉及到同一个状态或者逻辑资源，但是这些任务是互斥的。</p>
+<p>比如说这里有两个线程同时在执行两个任务，而这两个任务都是涉及到同一个资源，假设两个任务分别叫x和y。它们可能会被调度到一个核上来执行，在这里可能先执行第一个线程，执行了两句，然后操作系统把第二个线程调度到这个核上，把第一个线程调度走，第二个线程就执行了两句，这样交替执行。从一个线程来说，它感知到的是自己是一直在执行的，但是在写完y=1然后去读y的时候，却会发现y变了。所以在这种模式下其实是需要一个数据同步的，可能是锁或者原子变量之类的手段，来保护好状态和变更。</p>
+<div class="heti heti--annotation">
+而在右边，这两个任务会被分配到同一个线程内。即涉及到同一个资源的会被分配到一起。如果两个任务运行在同一个线程，就算这个线程本身被操作系统调度走，对任务来说它（任务）也是一直运行的。因为整个线程被调度走，这个线程上的其他任务也无法执行。这时候虽然操作系统还是能够对线程进行调度，但逻辑上的调度权实际上就是由<ruby>执行器<rt>executor</rt></ruby>任务之间来进行一个协作式调度。而有这个基础之后还能够进一步地限制操作系统的调度，尽可能多地把调度权转移到应用层来。
+</div>
+
+<p>而协作式调度则是由各个任务主动交出执行权，比如说这里如果Task1不想被调度走，那它可以选择不交出自己的执行权，而把自己四条命令全部执行完，然后再由Task2来执行，这样就能够有一个确定性的执行模式。Task1能够确定自己在写y和读y之间，这个y是不会发生变化的。这样能够减少简化我们的状态管理，不需要去锁上一个临界区来确保变量或者资源地独占访问之类的，因为这一点已经在我们模型层面已经保障。另外也能对系统的延时性能有一定提升。</p>
+<p>Image</p>
+<p>在这个条件下，更进一步可以想到其实不再需要原子操作了，或者换句话说来说，所有的操作都是原子的，可以不受限于硬件的限制，对任意多的数据进行“原子”操作，因为只要不主动交出执行权，那这个操作就可以一直以一种确定的顺序执行。</p>
+<p>这一点带来最直观的变化就是我们<ruby>工具结构<rt>utils</rt></ruby>的变化，比如说常用的<code>Arc</code>(Atomic Reference Count)可能就变成<code>Rc</code>(primitive Reference Count)，就是不需要原子操作的引用计数。同时还有一类大量运用了原子操作的lock free这种结构，也不需要掉头发去写这种东西了，用普通的单线程结构就能够完成。还能够保证这个结构、这个状态在同一时刻不会有其他人来访问。</p>
+<p>不过也不是说完全能够去掉lock free的结构或者是lock，毕竟状态之间以及任务之间还是需要进行状态同步的，完全抹掉所有的共享状态是非常困难的，在两个实践中都是选择系统的一部分来实现这个模型，算是一个工程上的取舍。</p>
+<p>Image</p>
+<p>除了不需要原子操作，还有一个特征就是没有<code>Send</code>这个auto trait，可以看到在标准库里面是显示的给<code>Rc</code>实现了一个<code>!Send</code>。</p>
+<p>在接下来讲之前，先回忆一下Rust中关于<code>Send</code>的定义，简单来说就是用来表示一个结构能否安全地被多个线程所持有。这个trait非常常见，大部分地方都能见到，或者自己定义自己的trait的时候，也给它加上了<code>Send</code>，加上<code>Sync</code>，或者加上<code>&#39;static</code>这种，先加上再说的这些auto trait，以及遇事不决，用<code>Arc&lt;Mutex&lt;T&gt;&gt;</code>来堵住编译器关于生命周期、Send之类的报错的做法。</p>
+<p>而且目前很多的基础设施都是在<code>Send</code>这一条件被满足的情况下来实现的，比如可能我们看看自己的代码，可能大部分都要求了<code>Send</code>，或者是像pub fn spawn这个方法也是对spawn进行了future以及future的结果，也要求了一个<code>Send</code>。</p>
+<p>但是在我们现在所讨论的这个模型中，可能<code>Send</code>就不是那么常见了，因为我们大部分的工作都是在一个线程中完成，没有这样一个结构或者是一个任务发送到多个线程的需求，自然就不需要<code>Send</code>这个约束，因为我们在一开始就不会在多个线程中共享它们。</p>
+<p>那么少了这个约束之后，不仅是常用的工具类可能会发生变化，还有他们背后所隐含的编程习惯可能也会不同。</p>
+<p>Image</p>
+<p>最后一点就是获取可见性的开销会减少。比如之前可能常见的是用<code>Mutex</code>或者<code>RwLock</code>，需要处理多个资源可能被同时访问的情况。但在这里可以从结构上避免这种情况的出现，只需要去获得语义上的一个内部可变性就行了。理论上是可以把所有额外的运行时检查都去掉，同时还能够保证代码的安全。</p>
+<p>另外就是所有的工作负载从开始到完成都在同一个worker thread中，这个worker thread包含所有的上下文，从这一点出发来方便地实现任务调度和资源控制等功能。</p>
+<p>Image</p>
+<p>前面这么多虽然，最后还有一个但是：虽然同时只会有一个任务在进行，不存在并发状态的修改，但是还是不能够完全丢掉锁，因为在不同的任务之间还是需要同步状态。为了性能通常会选择将任务进行穿插进行，比如说任务A在等IO的时候可以交出所有权，它去后台等IO，让任务B的计算先开始。这个时候我们可能有些操作才执行到了一半，所以要通过锁的机制来告诉别的任务，这个资源现在不能够被进行访问/修改。</p>
+<p>不过同样是锁，单线程下的锁会稍微简单一些，不需要条件变量之类的手段，比如说最朴素的就是自旋锁（现在你也许是知道你在<a target="_blank" rel="noopener" href="https://www.realworldtech.com/forum/?threadid=189711&curpostid=189723">干什么</a>的）。不过最好还是和Runtime相结合来干涉Runtime的调度（的确能在user-land能做到这些！）。</p>
+<p>另外一点需要注意的就是这个工作线程中不能够有任何的blocking行为，虽然在平常的异步中也是需要注意的一点。但是同样是执行blocking操作，在一共只有一个线程的情况下把这个线程block住带来的后果会比平常更麻烦一些。多线程的情况下其他的任务可以被调度到别的线程上去执行，但是在这里这个线程关联的所有任务都将无法进行。</p>
+<p>那是不是这种情况下就完全不能进行阻塞式的IO了呢？如果是纯异步的IO当然是没有问题的。如果不是的话，一个常见的办法就是开一个或者多个线程来专门执行这些blocking的操作，主线程把这些操作移交出去（某种程度上和模拟异步IO差不多）来保证自己仍然是异步的，考虑到环境与环境不能一概而论，在只能使用阻塞式IO的时候这个手段就是必要的。</p>
+<p>Image</p>
+<h2 id="It-takes"><a href="#It-takes" class="headerlink" title="It takes"></a>It takes</h2><p>好处讲了这么多，那么代价是什么呢？</p>
+<p>这里列了两点我认为比较重要的代价，一个是传染性，另外一个是做强制分片的需求。首先说传染性，这里指的是Send这个trait的传染性，我刚刚所说整个系统变为单线程的模型改动会比较大，但是如果只改一部分的话也会有问题。(todo: mesos)</p>
+<p>我们先来回忆一下Rust中是怎么处理auto trait的，这里就以Send为例，如果一个结构所有的field都是Send的，编译器就会自动给这个结构也推导成Send。反过来如果这个结构中有一个或者是多个field，它是Unsend的，就它没有实现Send，那编译器就会把这个Unsend推导到这个结构上。如果一个结构中任何一个地方是Unsend，那这个结构就会被推导为Unsend，这个结构也可以是Rust自动生成的future，通过async语法来生成的future，它本身也是一个匿名的结构体。</p>
+<p>如果是这样，Unsend可能就会随着这种函数调用扩散到整个系统。但这显然是不可接受的，因为这就强制要求我们把整个系统改造成够接纳Unsend。这种时候为了防止把Unsend扩散得到处都是，我们可以让两部分通过channel来交流，把之前的显示函数调用包装成一个个task或者是request，就类似于模拟Rpc的感觉，通过这种方法来构建一个Unsend Boundary，把两部分分离开，从而避免这个问题。</p>
+<p>Image</p>
+<p>我们CeresDB中的Write，就刚才说的Write，也是通过上层所封装好的Write request来执行操作，上层是把自己所收到的写请求包装成一个request，然后通过channel发送给底下对应的Worker，然后这个Worker执行完再把结果发送回去，这样就避免了一个显示函数的调用，也就避免了这个类型扩散到其他的部分，而是只把它局限在我们的Worker中。</p>
+<p>Image</p>
+<p>另外一个问题就是强制分区，因为我们希望各个线程之间尽量减少交流来减少额外开销，所以能够最好就是预先将工作负载和资源都进行划分，比如CeresDB是按照表来进行partition，可能别的系统还按照ID或 Key range之类的。对一些系统来说可能分区是比较简单的，但是对于另外一部分系统，它可能就比较难以找到一个合适的分区方式，那我们这种单线程的编程模型或者是Thread Per Core不太适合。</p>
+<p>Image</p>
+<p>分区也要注意粒度的问题，最好能够保证每个分区之间不会相差太多，或者是每个分区元素的力度也不会相差太大，涉及到分区的系统通常都会遇到分区负载不均的情况，所以为了能够灵活地调度，能够根据负荷来动态地调整partition，就要求每个分区的单元不会太大。</p>
+<p>另外，还要求本身能够执行这个Repartition，这个其实大部分是工程上的问题，对于线程本身来说，它所代表的是一个计算资源，是无状态的，所以可以很方便地进行划分，能很方便地把某条指令在这个线程或者这个核上执行，或者``把它调度到另外一个线程或者另外一个核上执行，这个是比较方便的。</p>
+<p>但是一个任务通常背后还对应了一些状态和资源，这些相较于任务本身是更难以调度的，特别是如果涉及到持久化的状态，比如把什么东西写到磁盘上，那我们这个下在这个磁盘，另外一个partition在另外一个磁盘，这个时候可能会要有一个比较复杂的逻辑。同时上层的分组路由也要保证路由的正确性。</p>
+<h1 id="How-to"><a href="#How-to" class="headerlink" title="How to"></a>How to</h1><p>那么最后假如场景也很适合，想体验一下它带来船新体验和性能提升，那要怎么样开始开发呢？First of这个要求纯异步的代码，所以离不开<code>async</code>/<code>.await</code>。</p>
+<p>先看一下最重要的Runtime，目前一些常用的Runtime都有提供不要求<code>Send</code>的接口，比如说tokio和futures，都有spawn local的方法，可以看到和刚刚的spawn的区别就是我们这里函数签名上不再要求Send这个bound了。</p>
+<p>另外也有一些专门为Thread Per Core模型设计的运行时，比如说glommio和monoio，不过这两个除了Thread Per Core之外还绑定了io_uring作为IO接口，虽然非常合理，因为我们本身就是最好是能够和异步IO相结合使用，但是也让它没有那么灵活，因为作为一个还比较新的系统特性，可能很多存量的服务器系统版本还没有升级，可能就会需要用到我们刚刚提到的那些手段去做一个适配。</p>
+<p>在我们的实践中，也有遇到这个问题，为了能够兼容非阻塞的IO接口，需要用到前面提到Blocking的线程方式，可能还要再做一些hack来适配，把它迁移到常用的Runtime上。</p>
+<p>还有标准库中的一些工具类也能够派上用场，比如用TLS代替一些全局变量，它们也属于被分开的“状态”。在刚刚提到我们使用tokio来模拟Thread Per Core Runtime的时候，也有使用到TLS，就是把每个线程拥有一个正常的tokio Runtime，然后把它放在TLS里面来模拟一个Thread Per Core Runtime。</p>
+<p>此外还有Cell类，主要就是用来获取内部可变性的，用来代替锁，在无序竞争的场景下一个比较开销更小的内部可变性的获取。</p>
+<p>不过这里RefCell其实还涉及到一个动态运行时的检查，就是它会检查我这个是否有其他的也同时持有这个可变性，有的话它就会导致panic。事实上在这个模型中，就像刚才提到的一样，是能够在设计的时候就完全规避掉这个运行时的检查的，所以我们理论上RefCell还可以更进一步提供一个保证。</p>
+<p>除了这些，还有一些平时的异步编码的注意事项也会变得很重要，比如前面提到的Blocking操作，或者Clippy中的一些Lint。比如Clippy中这个Lint，我们可能会用RefCell来大量代替锁，所以需要注意await的时机，以这个fn函数为例，比如我们在第一行获取了x的可变引用，但是在第二行把它await走，这个await相当于交出了我们这个函数的执行权，这个时候是能够把其他的任务调度过来的。如果有第二个fn函数在这里进入了，它在尝试去获取x的可变引用，这个时候就相当于一个可变引用被两个函数所持有，这里就会导致一个panic。所以我们需要注意await的时机，await其实就是隐式地会交出执行权。</p>
+<p>除了这些，还有很多平常异步编码的时候那些注意事项，在这里可能就是会变得更加重要，因为违背这些事项，可能会带来一些更加严重的后果。就比如说刚刚的Blocking，或者是这里的await holding refcell。</p>
+<p>虽然目前已经有很多基础的方式能够让我们相对完整地实现这一个特性，或者说这一个模型，但是我们还是可以从生态或者是基础库的角度做得更好。比如说在设计的时候就考虑能够保证独占访问这一条件的基础类，比如说从channel到Runtime等等，还能够更进一步地压榨性能，以及现在可能到处都要求的Send，那是否在设计的时候我们再加上Send这个trait bound的时候，想一想这里是否真的需要。</p>
+<p>如果是一些简单的场景在目前的生态中已经能够基于TPC模型构建一个基本完整的应用了，但是想要轻松上手以及最大地发挥优势还需要一些发展时间。</p>
 
         </article>
       </section>
@@ -268,8 +253,8 @@
     
     <div class="card-text">
       
-        <a href="/2022/12/async-cancellation/" itemprop="url">
-          <h2 class="card-text--title text-ellipsis">The Hidden Control Flow</h2>
+        <a href="/2022/09/curp-notes/" itemprop="url">
+          <h2 class="card-text--title text-ellipsis">Paper Reading: CURP protocol</h2>
         </a>
       
       <div class="card-text--row">Newer</div>
@@ -281,10 +266,12 @@
             <div class="article-nav-item layout-padding">
   <article class="card-container article-nav-card content-padding--primary soft-size--large soft-style--box">
     
+      <div class="card-cover" background-image-lazy data-img="/covers/remarkable2.jpg"></div>
+    
     <div class="card-text">
       
-        <a href="/2022/06/tpc-practice/" itemprop="url">
-          <h2 class="card-text--title text-ellipsis">CeresDB 的单线程模型实践 (Rust China Conf 2022)</h2>
+        <a href="/2022/05/remarkable2/" itemprop="url">
+          <h2 class="card-text--title text-ellipsis">reMarkable2 使用体验</h2>
         </a>
       
       <div class="card-text--row">Older</div>
@@ -448,7 +435,7 @@
     <span>Content</span>
   </div>
   <div class="widget-body">
-    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%9B%86%E7%BE%A4%E8%A7%92%E8%89%B2"><span class="toc-text">集群角色</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C"><span class="toc-text">基本操作</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0"><span class="toc-text">更新</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Leader-%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D"><span class="toc-text">Leader 故障恢复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%BB%E5%8F%96"><span class="toc-text">读取</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GC"><span class="toc-text">GC</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%93%8D%E4%BD%9C"><span class="toc-text">进阶操作</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E4%BA%9B%E8%AF%81%E6%98%8E"><span class="toc-text">一些证明</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Durability"><span class="toc-text">Durability</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Consistency"><span class="toc-text">Consistency</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linearizability"><span class="toc-text">Linearizability</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%80%E5%90%8E"><span class="toc-text">最后</span></a></li></ol>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Examples"><span class="toc-text">Examples</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pros-amp-Cons"><span class="toc-text">Pros. &amp; Cons.</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#It-gives"><span class="toc-text">It gives</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#It-takes"><span class="toc-text">It takes</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#How-to"><span class="toc-text">How to</span></a></li></ol>
   </div>
 </section>
 

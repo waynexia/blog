@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="theme-color" content="#3367D6"/>
+  <link rel="apple-touch-icon" href="/icons-192.png">
+  <link rel="manifest" href="/manifest.json">
+  
+  <meta name="generator" content="Hexo 6.0.0">
+
+  
+    <meta name="description" content="Wayne&#39;s personal blog">
+  
+
+  
+
+  
+    <meta name="author" content="Wayne">
+  
+
+  
+
+  
+
+  <title>杂技：被 CGO 玩转 | Wonderland</title>
+
+  
+    <link rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
+  
+
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+
+  
+
+  
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typeface-source-code-pro@1.1.3/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlightjs@9.16.2/styles/monokai.css">
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+</head>
+<body>
+  <div class="root-container">
+    
+<!-- header container -->
+<header class="header-container post">
+  
+    <div class="post-image" style="background-image: url(/covers/embed-rust-lib-into-go.png)"></div>
+  
+
+  <!-- navbar -->
+<nav class="navbar">
+  <div class="navbar-content">
+    <!-- logo -->
+    <div class="navbar-logo">
+      <a href="/">
+        
+          Wonderland
+        
+      </a>
+    </div>
+    <!-- link -->
+    <div class="navbar-link">
+      <div class="navbar-btn">
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <ul class="navbar-list">
+        
+          <li class="navbar-list-item"><a href="/">Home</a></li>
+        
+          <li class="navbar-list-item"><a href="/about">About</a></li>
+        
+
+        <li class="navbar-list-item">|</li>
+
+        <li class="navbar-list-item"><a href="javascript:;" id="theme-light">🌞 Light</a></li>
+        <li class="navbar-list-item"><a href="javascript:;" id="theme-dark">🌛 Dark</a></li>
+        <li class="navbar-list-item"><a href="javascript:;" id="theme-auto">🌗 Auto</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+  
+
+  
+  
+
+  
+  
+
+  
+  
+
+  
+  
+    <div class="header-content">
+      <div class="post-text layout-block">
+        <div class="layout-margin">
+          <h1 class="title-wrap">杂技：被 CGO 玩转</h1>
+          <h2 class="title-sub-wrap">
+            <strong>Wayne</strong>
+            <span>write on</span>
+            <time  class="article-date" datetime="2021-12-28T19:58:27.000Z" itemprop="datePublished">2021-12-28</time>
+          </h2>
+          <ul class="wrap-list dark">
+  
+</ul>
+          <ul class="wrap-list dark">
+  
+    <li><a href="/tags/Rust/">🏷️ Rust</a></li>
+  
+</ul>
+        </div>
+      </div>
+    </div>
+  
+
+  
+  
+  
+</header>
+
+    <!-- 文章 -->
+
+<!-- 文章内容 -->
+<div class="body-container">
+  <article class="content-container layout-block post-container">
+    <div class="article-info">
+      
+      
+      
+      
+      <link rel="stylesheet" href="//unpkg.com/heti/umd/heti.min.css">
+      <script src="//unpkg.com/heti/umd/heti-addon.min.js"></script>
+      <section class="article-entry markdown-body layout-margin content-padding--large soft-size--large soft-style--box">
+        <article class="heti heti--sans">
+          <style>
+            .heti {
+              max-width: 100%;
+              line-height: 1.5em;
+            }
+            figure.highlight { text-align: left; }
+            .heti figure table { border-width: 0px; }
+            .heti blockquote {
+              background-color: transparent;
+              padding-block-start: 0px;
+              padding-block-end: 0px;
+            }
+            .heti--vertical {
+              overflow-x: scroll;
+            }
+            .heti-em {
+              text-emphasis: filled circle;
+              text-emphasis-position: under;
+            }
+            </style>
+            <script>
+              const heti = new Heti('.heti');
+              heti.autoSpacing();
+            </script>
+          <h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>故事发生在蚂蚁一个内部项目上，这个项目有 Go 和 Rust 两个部分，其中 Rust 库作为一个存储组件被 Go 的业务部分依赖着。出于种种原因，两个部分需要作为同一个进程来运行，中间有一层 C FFI 接口作为理想与现实的桥梁。大概是这个样子的</p>
+<p><img src="/covers/embed-rust-lib-into-go.png" alt="img"></p>
+<p>Rust 部分首先将使用到的 Library 的接口和结构使用另一个小小的 <a target="_blank" rel="noopener" href="https://doc.rust-lang.org/reference/linkage.html">cdylib</a> shim 项目封装一下，并通过这个项目生成 Rust 库的编译产物、一个动态链接对象和一份 C 的接口头文件。再基于 C header 写一个 Go 的 SDK 给上层使用。单独左边的 Go 或者右边的 Rust 项目都不够刺激，连在一起就很得劲了。这里主要集中在中间那一团麻花部分上，也是 too young too simple 掉了很多头发的地方。</p>
+<p>大概会从线程、内存和信号三个方面讲几个事故。</p>
+<h1 id="线程"><a href="#线程" class="headerlink" title="线程"></a>线程</h1><p>刚开始的时候 shim 和 SDK 都非常简单，SDK 每个请求都通过 CGO 走到 shim，shim 在进行一些结构的转换后调用 library 来处理请求，等待请求完成之后把结果返回给 SDK。比较符合直觉的流程，但是在测试的时候出现了问题，整个程序的行为都不太正常。当时刚开始连调，在这之前 component 和 library/shim 都只单独进行了测试，当然单独测试的时候大家都是一切正常，所以连调起来场景就变成了…</p>
+<p><img src="1.png" alt="img"></p>
+<div class="heti heti--annotation">
+虽然很快就怀疑到了 SDK 和 shim 部分，但是也不清楚问题到底出在哪里。直到翻日志的时候发现了一条原本只应该在启动的时候输出一次的日志出现了复数次，才意识到不对劲。（又）出于一些原因，shim 和 library 中都存在有 <a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Thread-local_storage">TLS</a>(<ruby> thread local storage<rt>线程局部存储</rt></ruby>)结构，比如在 Rust std 中的一种<a target="_blank" rel="noopener" href="https://doc.rust-lang.org/std/macro.thread_local.html">实现</a>。它会在每个线程第一次使用这个结构的时候进行初始化，之后同一个线程都会一直访问到这个对象，而不同的线程之间访问到的是不同的对象。而那条重复出现的日志就是一个 TLS 结构在初始化时输出的，也就是说 TLS 不符合预期地被重复初始化了。
+</div>
+
+<p>先看下 Go 在进行 CGO 调用的时候会发生什么。Go runtime 提供的线程与系统线程不是一一对应，在进行非 Go 的调用时，会把当前 goroutine 放在一个系统线程上，使用这个系统线程完成后续的调用流程。所以如果不做特殊处理的话对于 shim 来说每次请求都有可能发生在一个新的线程上，而使得之前保存在 TLS 中的状态失效。并且更加严重的是，shim 的 TLS 中包括了一些 library 的线程句柄，导致 library 的部分状态也出现了混乱，最终整个进程的行为都变得很奇怪。</p>
+<div class="heti heti--annotation">
+为了解决这个问题，我们需要把 shim 和 library 的线程固定住，shim 接到请求后通过<ruby>线程信息传递<rt>channel</rt></ruby>的方式与 library 交互，包括发送请求与接收结果：
+</div>
+
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs rust"><span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">Handle</span></span> &#123;<br>    runtime: Runtime <span class="hljs-comment">// this was TLS</span><br>&#125;<br><br><span class="hljs-keyword">impl</span> Handle &#123;<br>    <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">new</span></span>() -&gt; <span class="hljs-keyword">Self</span>&#123;<br>        <span class="hljs-keyword">let</span> worker_thread = std::thread::spawn(|| &#123;&#125;); <span class="hljs-comment">// main thread, channels inside</span><br>        <span class="hljs-keyword">let</span> runtime = Runtime::new(); <span class="hljs-comment">// callback threads</span><br>        <span class="hljs-keyword">Self</span> &#123; runtime &#125;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>同时来都来了，也顺便将 library 异步的接口暴露到了上层，由原来一次 CGO 完成整个请求的方式变成了一次 CGO 提交请求，结果通过后续另一次 C 到 Go 的调用异步地返回，也能够防止大请求把 Go runtime spawn 出来的 CGO 线程阻塞太长时间。现在整个的交互流程看起来大概是这样的：</p>
+<p><img src="2.png" alt="img"></p>
+<p>不过这只是很基础的方案，“变电器” CGO 的原理很简单，但也存在许多优化空间，能够在解决问题的同时降低损耗率。这里是找到的一些操作（<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/PdeLX4loFaXr4E74hsrHCw">1</a>,<a target="_blank" rel="noopener" href="https://about.sourcegraph.com/go/gophercon-2018-adventures-in-CGO-performance/">2</a>,<a target="_blank" rel="noopener" href="https://www.cockroachlabs.com/blog/the-cost-and-complexity-of-CGO/">3</a>），当然大部分都还没做（</p>
+<h1 id="内存"><a href="#内存" class="headerlink" title="内存"></a>内存</h1><p>除此之外，为了通过 C 的接口来传递数据，需要对数据结构进行一些修改，这一部分主要在 shim 和 SDK 进行。简单来说就是把所有需要传递的类型都能够用 C 表示出来，在<a target="_blank" rel="noopener" href="http://jakegoulding.com/rust-ffi-omnibus/">这里</a> 有一些例子，或者是像这样：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs rust"><span class="hljs-meta">#[repr(C)]</span><br><span class="hljs-keyword">pub</span> <span class="hljs-class"><span class="hljs-keyword">struct</span> <span class="hljs-title">Bytes</span></span> &#123;<br>    ptr: *<span class="hljs-keyword">mut</span> libc::c_void,<br>    len: libc::size_t,<br>&#125;<br><br><span class="hljs-keyword">crate</span> <span class="hljs-function"><span class="hljs-keyword">fn</span> <span class="hljs-title">make_bytes</span></span>(<span class="hljs-keyword">mut</span> bytes: <span class="hljs-built_in">Vec</span>&lt;<span class="hljs-built_in">u8</span>&gt;) -&gt; <span class="hljs-keyword">Self</span> &#123;<br>    bytes.shrink_to_fit();<br>    <span class="hljs-keyword">let</span> (ptr, len, cap) = bytes.into_raw_parts();<br>    <span class="hljs-built_in">debug_assert_eq!</span>(len, cap);<br>    Bytes &#123;<br>        ptr: <span class="hljs-keyword">unsafe</span> &#123; mem::transmute::&lt;*<span class="hljs-keyword">mut</span> <span class="hljs-built_in">u8</span>, *<span class="hljs-keyword">mut</span> libc::c_void&gt;(ptr) &#125;,<br>        len,<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>Go 与 Rust 在远离 FFI 边界的地方（一般来说）都能够很好地处理内存问题，这些非法的指针和地址基本上都是没能好好处理另一方丢过来的东西造成的。在当时为了减少工作量已经通过大量的拷贝减少了许多使用裸指针的地方，剩下的主要集中在两处，即接收对方传递过来的数据以及通知对方回收这一块数据的内存。这种时候除开遵守老生常谈的“<span class="heti-em"><strong>谁分配谁释放</strong></span>”原则外，剩下的基本也只能现场<del>抓头发后悔</del>定位了。</p>
+<p>最先的入手点就是发生错误时所打出来的堆栈，按照经验跟着上面的错误信息后的第一条 Go routine backtrace 通常是发生问题的地方（应该……？）。可以先顺着调用栈检查一下代码中是否有不正确的指针使用。不过这个堆栈中只会存在 Go 这一部分的信息。当问题出现在 Go 之外的时候日志会变得非常迷惑，基本只能够知道是哪一个 CGO 函数值得怀疑。这一部分就和普通的内存问题排查差不多，列举几个常用的步骤：</p>
+<h2 id="打印日志"><a href="#打印日志" class="headerlink" title="打印日志"></a>打印日志</h2><p>如果问题比较好复现的话，可以在路径上多增加一些日志输出，把值得怀疑的指针地址以及它们解引用之后的内容打印出来，有时能够观察到一个指针是如何一步步走向非法的。注意解引用时最好放到另一行日志中，毕竟每一个解引用操作都是在非法边缘蹦迪，如果这个指针在解引用的时候出错可能会带着其他有用的日志输出一起消失。</p>
+<h2 id="借助工具"><a href="#借助工具" class="headerlink" title="借助工具"></a>借助工具</h2><p>也可以通过一些工具来监测内存的使用情况，比如各种 <a target="_blank" rel="noopener" href="https://doc.rust-lang.org/beta/unstable-book/compiler-flags/sanitizer.html">sanitizer</a> 和 <a target="_blank" rel="noopener" href="https://valgrind.org/">valgrind</a> 等，有的时候不是所有的内存问题都会导致程序挂掉，一些非法的内存操作有可能被忽略，比如数组稍微越界一点点，不小心 free 多次或忘记 free 等。这些工具能够及时地发现这些问题。不过它们都或多或少会带来一些性能影响，所以也不是所有情况都适用。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># valgrind</span><br>$ cargo build<br>$ valgrind --leak-check=full --show-leak-kinds=all --tool=memcheck $(BIN)<br><br><span class="hljs-comment"># address sanitizer</span><br>$ <span class="hljs-built_in">export</span> RUSTFLAGS=-Zsanitizer=address RUSTDOCFLAGS=-Zsanitizer=address<br>$ cargo run -Zbuild-std --target x86_64-unknown-linux-gnu<br></code></pre></td></tr></table></figure>
+
+<h2 id="特殊值"><a href="#特殊值" class="headerlink" title="特殊值"></a>特殊值</h2><p>有些环境会在内存操作前后把那一块内存设置上特殊值来表示这块内存的状态，使它能方便地被观察到。如 jemalloc 的 <code>--enable-fill</code> <a target="_blank" rel="noopener" href="https://github.com/jemalloc/jemalloc/wiki/Use-Case%3A-Find-a-memory-corruption-bug">参数</a> 或 MariaDB 的 <code>TRASH_ALLOC()</code> <a target="_blank" rel="noopener" href="https://github.com/MariaDB/server/blob/c9fcea14e9e1f34a97451706eac51276c85bbea7/include/my_valgrind.h?_pjax=%23js-repo-pjax-container,%20div%5Bitemtype=%22http://schema.org/SoftwareSourceCode%22%5D%20main,%20%5Bdata-pjax-container%5D#L97-L100">宏</a>，会把回收的内存填上一个特殊值，如果看到这个值的话就知道是发生了 use after free。</p>
+<h2 id="缩小范围"><a href="#缩小范围" class="headerlink" title="缩小范围"></a>缩小范围</h2><p>分为两个方面的缩小。如果条件允许的话也可以通过注释掉一些代码来缩小排查范围，比如先不进行 free 操作或者暂停部分路径进行观察；以及缩短调用路径，把各个组件单独拿出来 mock 测试。</p>
+<p>还有一些其他的小地方，比如观察指针是否对齐，出错的指针与周围指针的范围等。比如这里 Go 与 Rust 运行在同一个进程内，能够观察出 Go 出来的指针和 Rust 出来的指针在两个地址段上，指针本身的值有时候也能够说明一些信息。不过说归说，真写出来的内存问题都是表面上千篇一律，背地里各有千秋。当程序内存出错时可能会带来各种千奇百怪的表现，搞多了就能够对不同的问题进行分类并案。毕竟一般来说全然无计可施的情况比较少，而通常是有许多手段但不知道哪一个才能得到信息。每个技能都会有施法时间消耗，万一被 invalid pointer 纠缠太久导致做梦都是panic就很痛苦了😇。</p>
+<p>在制作 shim，binding 和它们的 c demo 的时候通过一些 C 重新体验了一下<span class="heti-em">文明的进步</span>。不过现在回过头想想应该还有更先进的方法来避免一些问题的，有的时候的确是自己作死。</p>
+<h1 id="信号"><a href="#信号" class="headerlink" title="信号"></a>信号</h1><p>这是一个花了比较久时间的问题，噩梦从一次 SIGSEGV 开始（这个本质上也是一个内存问题）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs plain">fatal error: unexpected signal during runtime execution<br>[signal SIGSEGV: segmentation violation code=0x2 addr=0x18589091b1 pc=0x7f9205f814ba]<br>runtime stack:<br>runtime.throw(&#123;0xace954, 0xefc4e055&#125;)<br>        /home/go/src/runtime/panic.go:1198 +0x71 fp=0x7f91dce8afe8 sp=0x7f91dce8afb8 pc=0x448451<br>runtime.sigpanic()<br>        /home/go/src/runtime/signal_unix.go:719 +0x396 fp=0x7f91dce8b038 sp=0x7f91dce8afe8 pc=0x45fdf6<br></code></pre></td></tr></table></figure>
+
+<p>这里从复现就不顺利，原始场景大概需要半天到一天才能出现，同时也有其他未解决的问题混杂在一起，并且存在许多不同的系统环境和流量，各方面来说都非常地狱。</p>
+<p>在花了一些时间把其他的因素都排除掉之后，终于能够开始看 SIGSEGV 产生的 core dump 文件。但是通过 gdb 来看 core 的时候，都基本上是这样的</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs plain">Thread  (Thread 0x7f7c45fef700 (LWP 47715)):<br>#0  0x0000000000895b93 in runtime.futex ()<br>#1  0x0000000000860a20 in runtime.futexsleep ()<br>#2  0x0000000001dea010 in runtime.sched ()<br>#3  0x0000000000000080 in ?? ()<br>#4  0x00007f7c45feccb0 in ?? ()<br>#5  0x0000000000000000 in ?? ()<br>Thread  (Thread 0x7f7c457ee700 (LWP 47716)):<br>#0  0x0000000000895b93 in runtime.futex ()<br>#1  0x00000000008609ab in runtime.futexsleep ()<br>#2  0x000000c00011e840 in ?? ()<br>#3  0x0000000000000080 in ?? ()<br>#4  0x0000000000000000 in ?? ()<br>Thread  (Thread 0x7f7c4468c700 (LWP 52927)):<br>#0  0x00007f7c49301489 in syscall () from /lib64/libc.so.6<br>#1  0x00007f7c49834da9 in futex_wait (self=0x7f7c4468a640, ts=...) at parking_lot_core-0.8.5/src/thread_parker/linux.rs:112<br></code></pre></td></tr></table></figure>
+
+<p>问号的那些很好猜是 Go 的 m:n 线程来的，但是其他非 Go 的线程却都停在 syscall 上。一下子完全不知道到底该 blame 谁，为了查看下 Go 里面发生了什么事情，也用过 <a target="_blank" rel="noopener" href="https://github.com/go-delve/delve">delve</a> 来看看 Go 的堆栈，用法和 gdb 类似。这是一个有些痛苦的过程，dump 出了几千个 goroutine 的 backtrace，而且花了些时间简单看了下栈顶之后发现基本都是业务 goroutine，没有什么好怀疑的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs plain">(dlv)   Goroutine 1 - User: main.go:207 main.main (0xfa6f0e) [chan receive (nil chan) 451190h16m34.324364485s]<br>  Goroutine 2 - User: /root/go/src/runtime/proc.go:367 runtime.gopark (0x7f8076) [force gc (idle) 451190h16m34.619109482s]<br>  Goroutine 3 - User: /root/go/src/runtime/proc.go:367 runtime.gopark (0x7f8076) [GC sweep wait]<br>  Goroutine 4 - User: /root/go/src/runtime/proc.go:367 runtime.gopark (0x7f8076) [GC scavenge wait]<br>  Goroutine 5 - User: /root/go/src/runtime/proc.go:367 runtime.gopark (0x7f8076) [finalizer wait 451190h14m6.860088484s]<br>* Goroutine 17 - User: /root/go/src/runtime/sys_linux_amd64.s:165 runtime.raise (0x82acc1) (thread 71636) [GC assist marking]<br>  Goroutine 47 - User: /root/go/src/runtime/proc.go:367 runtime.gopark (0x7f8076) [select 451190h16m34.324667846s]<br>  Goroutine 48 - User: /root/go/src/runtime/sigqueue.go:169 os/signal.signal_recv (0x825998) (thread 67111)<br></code></pre></td></tr></table></figure>
+
+<p>唯一的信息就是看到了 SIGSEGV 是从哪里出来的（Goroutine 17）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs plain">runtime.throw(&#123;0xace954, 0xefc4e055&#125;)<br>        /home/go/src/runtime/panic.go:1198 +0x71 fp=0x7f91dce8afe8 sp=0x7f91dce8afb8 pc=0x448451<br>runtime.sigpanic()<br>        /home/go/src/runtime/signal_unix.go:719 +0x396 fp=0x7f91dce8b038 sp=0x7f91dce8afe8 pc=0x45fdf6<br></code></pre></td></tr></table></figure>
+
+<p>看着有点眼熟，就是经常在错误信息里面出现的第一行 stack。这个 goroutine 只有上面两层。只能说这个信息虽然有用，但基本没用。</p>
+<p>又经过了一些时间的挣扎，最后怀疑上面看到的 core dump 并不是实际上的第一手堆栈。通过把整个进程挂在 gdb 里面运行，终于能够拿到非法操作实际上出现的位置，让 gdb 在信号第一次抛出的时候先于 Go runtime 捕获到它。现在回看起来想说：如果早知道，堆栈信号会被 Go runtime 转手…</p>
+<p><img src="3.png" alt="img"></p>
+<p>在能够看到第一案发现场之后，后续的流程就比较普通了，而且根因是个自己挖的弱智坑。</p>
+<h1 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h1><p>分享我很喜欢的一句话：</p>
+<blockquote>
+<p>君子不立于花活之下。</p>
+</blockquote>
+<p>如果再让我选一次，打死也不会表演这个杂技。特别是最后发现一通操作猛如虎，一看QPS只有5 😇。还不如乖乖弄一些靠谱的东西（虽然被毒打之前也觉得 CGO 不过如此……）。</p>
+<!-- # 参考 -->
+
+
+        </article>
+      </section>
+
+      
+      
+        <nav class="article-nav">
+          
+            <div class="article-nav-item layout-padding">
+  <article class="card-container article-nav-card content-padding--primary soft-size--large soft-style--box">
+    
+      <div class="card-cover" background-image-lazy data-img="/covers/subnautica-below-zero.png"></div>
+    
+    <div class="card-text">
+      
+        <a href="/2022/03/subnautica-below-zero/" itemprop="url">
+          <h2 class="card-text--title text-ellipsis">深海迷航：冰点之下</h2>
+        </a>
+      
+      <div class="card-text--row">Newer</div>
+    </div>
+  </article>
+</div>
+          
+          
+            <div class="article-nav-item layout-padding">
+  <article class="card-container article-nav-card content-padding--primary soft-size--large soft-style--box">
+    
+      <div class="card-cover" background-image-lazy data-img="/covers/sakuna-rice-and-ruin.jpg"></div>
+    
+    <div class="card-text">
+      
+        <a href="/2021/02/sakuna-rice-and-ruin/" itemprop="url">
+          <h2 class="card-text--title text-ellipsis">天穗之咲稻姬</h2>
+        </a>
+      
+      <div class="card-text--row">Older</div>
+    </div>
+  </article>
+</div>
+          
+        </nav>
+      
+
+      <section class="page-message-container layout-padding">
+        
+
+
+  
+  
+
+  
+  
+
+
+      </section>
+    </div>
+    <div class="widget-info">
+      <section class="widget-author widget-item layout-margin content-padding--primary soft-size--large soft-style--box">
+  <div class="widget-body">
+    
+      <img src="https://github.com/waynexia.png" class="soft-size--round soft-style--box" alt="Wayne">
+    
+    
+      <h2>Wayne</h2>
+    
+    
+
+    <!-- <div class="count-box">
+      <div class="count-box--item">
+        <svg class="icon icon-article" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M240.51564747 647.74217627h196.07203239c16.59071043 0 30.16492806-13.57421762 30.16492805-30.16492806V165.10332731c0-33.18142087-30.16492806-60.32985613-60.32985612-60.32985611H245.04038668C225.43318342 104.7734712 210.35071939 119.85593522 210.35071939 139.46313845V617.57724821c0 16.59071043 13.57421762 30.16492806 30.16492808 30.16492806z m663.62841731-452.47392089v482.63884894c0 33.18142087-27.14843525 60.32985613-60.32985612 60.32985613H180.18579134c-33.18142087 0-60.32985613-27.14843525-60.32985612-60.32985613V195.26825538c-49.77213131 0-90.49478418 40.72265287-90.49478417 90.49478417v452.4739209c0 49.77213131 40.72265287 90.49478418 90.49478417 90.49478417h286.56681657c16.59071043 0 30.16492806 13.57421762 30.16492807 30.16492807s13.57421762 30.16492806 30.16492805 30.16492806h90.49478418c16.59071043 0 30.16492806-13.57421762 30.16492805-30.16492806s13.57421762-30.16492806 30.16492807-30.16492807h286.56681657c49.77213131 0 90.49478418-40.72265287 90.49478417-90.49478417V285.76303955c0-49.77213131-40.72265287-90.49478418-90.49478417-90.49478417zM587.41232014 647.74217627h191.54729318c19.60720323 0 34.68966726-15.08246403 34.68966729-34.68966727V134.93839925c0-16.59071043-13.57421762-30.16492806-30.16492808-30.16492805H617.57724821c-30.16492806 0-60.32985613 27.14843525-60.32985612 60.32985611v452.4739209c0 16.59071043 13.57421762 30.16492806 30.16492805 30.16492806z" fill="currentColor"></path>
+</svg>
+        <span>9</span>
+      </div>
+      <div class="count-box--item">
+        <svg class="icon icon-categories" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M900.3614811 257.09082106h-339.81629553l-67.96326003-101.9448889c-19.41807444-29.12711113-48.54518557-43.69066667-82.52681443-43.69066667H123.6385189c-53.39970333 0-97.09036999 43.69066667-97.09037113 97.09036999v582.54222222c0 53.39970333 43.69066667 97.09036999 97.09037113 97.09037002h776.7229622c53.39970333 0 97.09036999-43.69066667 97.09037113-97.09037002V354.18119104c0-53.39970333-43.69066667-97.09036999-97.09037113-97.09036998z m-97.09036999 242.72592554H220.72888889c-24.27259221 0-48.54518557-24.27259221-48.54518556-48.54518556s24.27259221-48.54518557 48.54518556-48.54518444h582.54222222c24.27259221 0 48.54518557 24.27259221 48.54518556 48.54518444s-24.27259221 48.54518557-48.54518556 48.54518556z" fill="currentColor"></path>
+</svg>
+        0
+      </div>
+      <div class="count-box--item">
+        <svg class="icon icon-tags" viewBox="0 0 1098 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M283.42180005 272q0-28.38857157-20.09142843-48.48000001t-48.47999998-20.09142842-48.48000002 20.09142842-20.09142846 48.48000001 20.09142846 48.48 48.48000002 20.09142843 48.47999998-20.09142843 20.09142843-48.48zM855.0332285 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.03999997 263.58857157q-20.9142853 19.81714313-48.75428534 19.81714312-28.38857157 0-48.20571468-19.81714312l-383.04-383.58857157q-20.36571468-19.81714313-34.55999999-54.10285688t-14.19428534-62.6742853l0-222.85714313q0-27.84000002 20.36571469-48.20571469t48.2057147-20.36571466l222.85714313 0q28.38857157 0 62.6742853 14.19428529t54.65142842 34.55999999l383.04000001 382.49142843q19.81714313 20.9142853 19.81714314 48.75428532zM1060.74751475 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.04 263.58857157q-20.9142853 19.81714313-48.75428531 19.81714312-19.26857155 0-31.61142843-7.47428531t-28.38857159-24.13714314l251.79428534-251.7942853q19.81714313-19.81714313 19.81714308-48.20571469 0-27.84000002-19.81714308-48.75428531l-383.04000001-382.49142845q-20.36571468-20.36571468-54.65142842-34.55999999t-62.67428532-14.19428534l120 0q28.38857157 0 62.67428532 14.19428534t54.65142842 34.55999999l383.03999998 382.49142845q19.81714313 20.9142853 19.81714314 48.75428531z" fill="currentColor"></path>
+</svg>
+        5
+      </div>
+    </div> -->
+
+    
+    <div class="social-icons">
+      
+        
+      
+        
+      
+        
+      
+        
+          <a href="https://github.com/waynexia/" class="soft-size--primary" target="_blank" rel="noopener noreferrer">
+            <svg class="icon icon-github" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M64.6 512c0 195.6 125.4 361.9 300.1 422.9 23.5 5.9 19.9-10.8 19.9-22.2v-77.6c-135.8 15.9-141.3-74-150.5-89-18.5-31.5-61.9-39.5-49-54.5 31-15.9 62.5 4 98.9 58 26.4 39.1 77.9 32.5 104.1 26 5.7-23.5 17.9-44.5 34.7-60.9-140.7-25.2-199.4-111.1-199.4-213.3 0-49.5 16.4-95.1 48.4-131.8-20.4-60.6 1.9-112.4 4.9-120.1 58.2-5.2 118.5 41.6 123.3 45.3 33.1-8.9 70.8-13.7 112.9-13.7 42.4 0 80.3 4.9 113.5 13.9 11.3-8.6 67.3-48.8 121.4-43.9 2.9 7.7 24.7 58.3 5.5 118.1 32.5 36.8 49 82.8 49 132.4 0 102.3-59 188.3-200.2 213.2 23.5 23.3 38.1 55.5 38.1 91.1v112.7c0.8 9 0 17.9 15.1 17.9C832.7 877 960.4 709.4 960.4 512.1c0-247.5-200.6-447.9-447.9-447.9C265 64.1 64.6 264.5 64.6 512z"></path>
+</svg>
+          </a>
+        
+      
+        
+          <a href="https://twitter.com/wayne17229928" class="soft-size--primary" target="_blank" rel="noopener noreferrer">
+            <svg class="icon icon-twitter" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M962.285714 233.142857q-38.285714 56-92.571429 95.428571 0.571429 8 0.571429 24 0 74.285714-21.714286 148.285714t-66 142-105.428571 120.285714-147.428571 83.428571-184.571429 31.142857q-154.857143 0-283.428571-82.857143 20 2.285714 44.571429 2.285714 128.571429 0 229.142857-78.857143-60-1.142857-107.428571-36.857143t-65.142857-91.142857q18.857143 2.857143 34.857143 2.857143 24.571429 0 48.571429-6.285714-64-13.142857-106-63.714286t-42-117.428571l0-2.285714q38.857143 21.714286 83.428571 23.428571-37.714286-25.142857-60-65.714286t-22.285714-88q0-50.285714 25.142857-93.142857 69.142857 85.142857 168.285714 136.285714t212.285714 56.857143q-4.571429-21.714286-4.571429-42.285714 0-76.571429 54-130.571429t130.571429-54q80 0 134.857143 58.285714 62.285714-12 117.142857-44.571429-21.142857 65.714286-81.142857 101.714286 53.142857-5.714286 106.285714-28.571429z"></path>
+</svg>
+          </a>
+        
+      
+        
+          <a href="https://twitter.com/wayne17229928" class="soft-size--primary" target="_blank" rel="noopener noreferrer">
+            <svg class="icon icon-mastodon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <path d="M433 179.11c0-97.2-63.71-125.7-63.71-125.7-62.52-28.7-228.56-28.4-290.48 0 0 0-63.72 28.5-63.72 125.7 0 115.7-6.6 259.4 105.63 289.1 40.51 10.7 75.32 13 103.33 11.4 50.81-2.8 79.32-18.1 79.32-18.1l-1.7-36.9s-36.31 11.4-77.12 10.1c-40.41-1.4-83-4.4-89.63-54a102.54 102.54 0 0 1-.9-13.9c85.63 20.9 158.65 9.1 178.75 6.7 56.12-6.7 105-41.3 111.23-72.9 9.8-49.8 9-121.5 9-121.5zm-75.12 125.2h-46.63v-114.2c0-49.7-64-51.6-64 6.9v62.5h-46.33V197c0-58.5-64-56.6-64-6.9v114.2H90.19c0-122.1-5.2-147.9 18.41-175 25.9-28.9 79.82-30.8 103.83 6.1l11.6 19.5 11.6-19.5c24.11-37.1 78.12-34.8 103.83-6.1 23.71 27.3 18.4 53 18.4 175z"></path>
+</svg>
+
+          </a>
+        
+      
+      
+        <a rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
+          <svg class="icon icon-rss" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path d="M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM96 136c0-13.3 10.7-24 24-24c137 0 248 111 248 248c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-110.5-89.5-200-200-200c-13.3 0-24-10.7-24-24zm0 96c0-13.3 10.7-24 24-24c83.9 0 152 68.1 152 152c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-57.4-46.6-104-104-104c-13.3 0-24-10.7-24-24zm64 120c0 17.7-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32s32 14.3 32 32z"></path>
+</svg>
+        </a>
+      
+    </div>
+     
+    
+  </div>
+</section>
+
+      <!--  -->
+
+      <!-- <section class="widget-categorys widget-item layout-margin content-padding--primary soft-size--large soft-style--box">
+  <div class="widget-title">
+    <svg class="icon icon-categories" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M900.3614811 257.09082106h-339.81629553l-67.96326003-101.9448889c-19.41807444-29.12711113-48.54518557-43.69066667-82.52681443-43.69066667H123.6385189c-53.39970333 0-97.09036999 43.69066667-97.09037113 97.09036999v582.54222222c0 53.39970333 43.69066667 97.09036999 97.09037113 97.09037002h776.7229622c53.39970333 0 97.09036999-43.69066667 97.09037113-97.09037002V354.18119104c0-53.39970333-43.69066667-97.09036999-97.09037113-97.09036998z m-97.09036999 242.72592554H220.72888889c-24.27259221 0-48.54518557-24.27259221-48.54518556-48.54518556s24.27259221-48.54518557 48.54518556-48.54518444h582.54222222c24.27259221 0 48.54518557 24.27259221 48.54518556 48.54518444s-24.27259221 48.54518557-48.54518556 48.54518556z" fill="currentColor"></path>
+</svg>
+    <span>CATEGORYS</span>
+  </div>
+  <div class="widget-body">
+    <ul class="categorys-list">
+      
+    </ul>
+  </div>
+</section> -->
+
+      <section class="widget-tags widget-item  layout-margin content-padding--primary soft-size--large soft-style--box">
+  <div class="widget-title">
+    <svg class="icon icon-tags" viewBox="0 0 1098 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M283.42180005 272q0-28.38857157-20.09142843-48.48000001t-48.47999998-20.09142842-48.48000002 20.09142842-20.09142846 48.48000001 20.09142846 48.48 48.48000002 20.09142843 48.47999998-20.09142843 20.09142843-48.48zM855.0332285 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.03999997 263.58857157q-20.9142853 19.81714313-48.75428534 19.81714312-28.38857157 0-48.20571468-19.81714312l-383.04-383.58857157q-20.36571468-19.81714313-34.55999999-54.10285688t-14.19428534-62.6742853l0-222.85714313q0-27.84000002 20.36571469-48.20571469t48.2057147-20.36571466l222.85714313 0q28.38857157 0 62.6742853 14.19428529t54.65142842 34.55999999l383.04000001 382.49142843q19.81714313 20.9142853 19.81714314 48.75428532zM1060.74751475 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.04 263.58857157q-20.9142853 19.81714313-48.75428531 19.81714312-19.26857155 0-31.61142843-7.47428531t-28.38857159-24.13714314l251.79428534-251.7942853q19.81714313-19.81714313 19.81714308-48.20571469 0-27.84000002-19.81714308-48.75428531l-383.04000001-382.49142845q-20.36571468-20.36571468-54.65142842-34.55999999t-62.67428532-14.19428534l120 0q28.38857157 0 62.67428532 14.19428534t54.65142842 34.55999999l383.03999998 382.49142845q19.81714313 20.9142853 19.81714314 48.75428531z" fill="currentColor"></path>
+</svg>
+    <span>Tags</span>
+  </div>
+  <div class="widget-body">
+    <div class="tags-cloud">
+      <!-- <a href="/tags/Device/" style="font-size: 10px;" class="tags-cloud-0">Device</a> <a href="/tags/Experience/" style="font-size: 16.67px;" class="tags-cloud-7">Experience</a> <a href="/tags/Game/" style="font-size: 13.33px;" class="tags-cloud-3">Game</a> <a href="/tags/Paper-Reading/" style="font-size: 13.33px;" class="tags-cloud-3">Paper Reading</a> <a href="/tags/Rust/" style="font-size: 20px;" class="tags-cloud-10">Rust</a> -->
+      
+          <a href="/tags/Paper-Reading/">
+            Paper Reading (2)
+          </a>
+      
+          <a href="/tags/Rust/">
+            Rust (4)
+          </a>
+      
+          <a href="/tags/Experience/">
+            Experience (3)
+          </a>
+      
+          <a href="/tags/Device/">
+            Device (1)
+          </a>
+      
+          <a href="/tags/Game/">
+            Game (2)
+          </a>
+      
+    </div>
+  </div>
+</section>
+
+      <!-- todo: only sticky TOC list -->
+      
+<section class="widget-toc widget-item layout-margin content-padding--primary soft-size--large soft-style--box sticky_element">
+  <div class="widget-title">
+    <svg class="icon icon-toc" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M134.50666666 767.46666668H460.8c27.73333333 0 50.24000001 22.50666668 50.24000001 50.23999999v50.13333333c0 27.73333333-22.50666668 50.24000001-50.24000001 50.24000001H134.50666666c-27.73333333 0-50.24000001-22.50666668-50.23999999-50.24000001v-50.13333333c0.10666668-27.73333333 22.50666668-50.24000001 50.24000001-50.24000001zM84.37333332 541.65333333h326.18666669c27.73333333 0 50.24000001 22.39999999 50.23999999 50.13333334v50.24000001c0 27.73333333-22.50666668 50.24000001-50.24000002 50.23999999H84.37333332c-27.73333333 0-50.24000001-22.50666668-50.23999999-50.23999999v-50.24000001c0-27.73333333 22.50666668-50.13333334 50.24000001-50.13333334zM134.50666666 315.83999999H460.8c27.73333333 0 50.24000001 22.50666668 50.24000001 50.24000001v50.24000001c0 27.73333333-22.50666668 50.13333334-50.24000001 50.13333333H134.50666666c-27.73333333 0-50.24000001-22.39999999-50.23999999-50.13333333v-50.24000001c0.10666668-27.84000001 22.50666668-50.24000001 50.24000001-50.23999999zM209.81333332 89.91999999h326.18666671c27.73333333 0 50.24000001 22.39999999 50.23999997 50.13333335v50.23999999c0 27.73333333-22.50666668 50.24000001-50.24000001 50.24000001H209.81333332c-27.73333333 0-50.24000001-22.50666668-50.23999999-50.24000001v-50.24000001c0-27.73333333 22.50666668-50.13333334 50.24000001-50.13333333zM692.05333333 623.36l274.66666669 176.00000002c23.36000001 14.93333333 30.08 45.97333334 15.14666666 69.33333332L954.77333334 910.93333333c-14.93333333 23.25333334-45.97333334 30.08-69.33333335 15.14666667l-274.66666666-176c-23.36000001-14.93333333-30.08-45.97333334-15.14666667-69.33333333l27.09333334-42.24000001c14.93333333-23.36000001 46.08000001-30.08 69.33333333-15.14666666z" fill="currentColor"></path>
+</svg>
+    <span>Content</span>
+  </div>
+  <div class="widget-body">
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%83%8C%E6%99%AF"><span class="toc-text">背景</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BA%BF%E7%A8%8B"><span class="toc-text">线程</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%85%E5%AD%98"><span class="toc-text">内存</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%93%E5%8D%B0%E6%97%A5%E5%BF%97"><span class="toc-text">打印日志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%80%9F%E5%8A%A9%E5%B7%A5%E5%85%B7"><span class="toc-text">借助工具</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%89%B9%E6%AE%8A%E5%80%BC"><span class="toc-text">特殊值</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%A9%E5%B0%8F%E8%8C%83%E5%9B%B4"><span class="toc-text">缩小范围</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BF%A1%E5%8F%B7"><span class="toc-text">信号</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%80%E5%90%8E"><span class="toc-text">最后</span></a></li></ol>
+  </div>
+</section>
+
+
+    </div>
+  </article>
+</div>
+
+    <!-- footer container -->
+<footer id="footer" class="footer">
+  <div class="footer-container">
+    <p>
+      &copy; 2023 <a href="/" target="_blank">Wayne</a>
+      
+        |
+        <a rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
+          <svg class="icon icon-rss" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path d="M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM96 136c0-13.3 10.7-24 24-24c137 0 248 111 248 248c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-110.5-89.5-200-200-200c-13.3 0-24-10.7-24-24zm0 96c0-13.3 10.7-24 24-24c83.9 0 152 68.1 152 152c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-57.4-46.6-104-104-104c-13.3 0-24-10.7-24-24zm64 120c0 17.7-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32s32 14.3 32 32z"></path>
+</svg>
+        </a>
+      
+    </p>
+
+    
+
+    <p>Powered by <a href="https://hexo.io" target="_blank" rel="noopener noreferrer">Hexo</a> - <a href="https://github.com/waynexia/flexblock-modified" target="_blank" rel="noopener noreferrer author">This theme</a> is customized from <a href="https://github.com/miiiku/flex-block" target="_blank" rel="noopener noreferrer author">flex-block</a></p>
+
+  </div>
+</footer>
+  </div>
+
+  <div class="back-to-top-fixed soft-size--round soft-style--box">
+    <svg class="icon icon-back-to-top" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+      <path d="M725.333333 426.666667c-12.8 0-21.333333-4.266667-29.866667-12.8l-213.333333-213.333333c-17.066667-17.066667-17.066667-42.666667 0-59.733333s42.666667-17.066667 59.733333 0l213.333333 213.333333c17.066667 17.066667 17.066667 42.666667 0 59.733333C746.666667 422.4 738.133333 426.666667 725.333333 426.666667z"></path>
+      <path d="M298.666667 426.666667c-12.8 0-21.333333-4.266667-29.866667-12.8-17.066667-17.066667-17.066667-42.666667 0-59.733333l213.333333-213.333333c17.066667-17.066667 42.666667-17.066667 59.733333 0s17.066667 42.666667 0 59.733333l-213.333333 213.333333C320 422.4 311.466667 426.666667 298.666667 426.666667z"></path>
+      <path d="M512 896c-25.6 0-42.666667-17.066667-42.666667-42.666667L469.333333 170.666667c0-25.6 17.066667-42.666667 42.666667-42.666667s42.666667 17.066667 42.666667 42.666667l0 682.666667C554.666667 878.933333 537.6 896 512 896z"></path>
+    </svg>
+  </div>
+
+  
+  <!-- aplayer -->
+
+
+<!-- dplayer -->
+
+
+
+
+  
+
+
+  
+
+
+  
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+  
+  <!-- 尾部用户自定义相关内容 -->
+</body>
+</html>

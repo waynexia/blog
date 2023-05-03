@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="theme-color" content="#3367D6"/>
+  <link rel="apple-touch-icon" href="/icons-192.png">
+  <link rel="manifest" href="/manifest.json">
+  
+  <meta name="generator" content="Hexo 6.0.0">
+
+  
+    <meta name="description" content="Wayne&#39;s personal blog">
+  
+
+  
+
+  
+    <meta name="author" content="Wayne">
+  
+
+  
+
+  
+
+  <title>Paper Reading: Adaptive Radix Tree | Wonderland</title>
+
+  
+    <link rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
+  
+
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+
+  
+
+  
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/typeface-source-code-pro@1.1.3/index.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlightjs@9.16.2/styles/monokai.css">
+  
+
+  
+<link rel="stylesheet" href="/css/style.css">
+
+</head>
+<body>
+  <div class="root-container">
+    
+<!-- header container -->
+<header class="header-container post">
+  
+    <div class="post-image" style="background-image: url(https://raw.githubusercontent.com/waynexia/flexblock-modified/main/source/89433360_p0.jpg)"></div>
+  
+
+  <!-- navbar -->
+<nav class="navbar">
+  <div class="navbar-content">
+    <!-- logo -->
+    <div class="navbar-logo">
+      <a href="/">
+        
+          Wonderland
+        
+      </a>
+    </div>
+    <!-- link -->
+    <div class="navbar-link">
+      <div class="navbar-btn">
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <ul class="navbar-list">
+        
+          <li class="navbar-list-item"><a href="/">Home</a></li>
+        
+          <li class="navbar-list-item"><a href="/about">About</a></li>
+        
+
+        <li class="navbar-list-item">|</li>
+
+        <li class="navbar-list-item"><a href="javascript:;" id="theme-light">🌞 Light</a></li>
+        <li class="navbar-list-item"><a href="javascript:;" id="theme-dark">🌛 Dark</a></li>
+        <li class="navbar-list-item"><a href="javascript:;" id="theme-auto">🌗 Auto</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+  
+
+  
+  
+
+  
+  
+
+  
+  
+
+  
+  
+    <div class="header-content">
+      <div class="post-text layout-block">
+        <div class="layout-margin">
+          <h1 class="title-wrap">Paper Reading: Adaptive Radix Tree</h1>
+          <h2 class="title-sub-wrap">
+            <strong>Wayne</strong>
+            <span>write on</span>
+            <time  class="article-date" datetime="2020-07-13T21:45:12.000Z" itemprop="datePublished">2020-07-13</time>
+          </h2>
+          <ul class="wrap-list dark">
+  
+</ul>
+          <ul class="wrap-list dark">
+  
+    <li><a href="/tags/Paper-Reading/">🏷️ Paper Reading</a></li>
+  
+</ul>
+        </div>
+      </div>
+    </div>
+  
+
+  
+  
+  
+</header>
+
+    <!-- 文章 -->
+
+<!-- 文章内容 -->
+<div class="body-container">
+  <article class="content-container layout-block post-container">
+    <div class="article-info">
+      
+      
+      
+      
+      <link rel="stylesheet" href="//unpkg.com/heti/umd/heti.min.css">
+      <script src="//unpkg.com/heti/umd/heti-addon.min.js"></script>
+      <section class="article-entry markdown-body layout-margin content-padding--large soft-size--large soft-style--box">
+        <article class="heti heti--sans">
+          <style>
+            .heti {
+              max-width: 100%;
+              line-height: 1.5em;
+            }
+            figure.highlight { text-align: left; }
+            .heti figure table { border-width: 0px; }
+            .heti blockquote {
+              background-color: transparent;
+              padding-block-start: 0px;
+              padding-block-end: 0px;
+            }
+            .heti--vertical {
+              overflow-x: scroll;
+            }
+            .heti-em {
+              text-emphasis: filled circle;
+              text-emphasis-position: under;
+            }
+            </style>
+            <script>
+              const heti = new Heti('.heti');
+              heti.autoSpacing();
+            </script>
+          <h1 id="什么是-ART"><a href="#什么是-ART" class="headerlink" title="什么是 ART ?"></a>什么是 ART ?</h1><p>ART 是一个能提供高效点的增删查改，以及范围查询的索引结构。是一个有序的映射。名称中的 radix 表示这是一颗用基数来构建的结构，内部数据是有序存储的，所以有高效范围查询的能力。相比于其他常见的基数结构，ART 的空间利用率更高。这得益于它 adaptive 的特性，即能够根据空间使用情况动态地调节节点大小。</p>
+
+    <figure class="figure-image">
+      <img src="./1.png" alt="Compare to HashTable" width="50%" height="100% loading="lazy" />
+      <figcaption>Compare to HashTable</figcaption>
+    </figure>
+  
+
+<h1 id="基数树"><a href="#基数树" class="headerlink" title="基数树"></a>基数树</h1><p>是trie树的一种。这种数据结构所储存的信息并不在某个节点上，而是由一条由根到叶节点的路径所表示（当用作映射的时候通常为键的信息储存在路径上，值的信息存于对应的叶节点）。</p>
+
+    <figure class="figure-image">
+      <img src="2.png" alt="An ART" width="50%" height="100% loading="lazy" />
+      <figcaption>An ART</figcaption>
+    </figure>
+  
+
+<h1 id="Adaptive-Node"><a href="#Adaptive-Node" class="headerlink" title="Adaptive Node"></a>Adaptive Node</h1><p>ART 使用能动态调节大小（自适应 adaptive）的节点作为内部树节点，能够提高内存使用率。DBMS 中常见的有序索引数据结构B-tree或者传统的radix tree因为每个节点的大小是固定的，因此存在空间放大的问题。类似于磁盘或内存页表的大小，节点的大小通常需要取舍，节点太大的话浪费很严重，节点太小路径又很长，影响读写效率。</p>
+
+    <figure class="figure-image">
+      <img src="3.png" alt="" width="70%" height="100% loading="lazy" />
+      <figcaption></figcaption>
+    </figure>
+  
+
+<p>虽然理论上说能够使用动态数组作为内部节点，但是这样会涉及到频繁的内存分配释放。为了解决这个问题，ART将节点的大小固定为了四种。分别为4、16、48以及256。并且每个节点根据大小，在具体的结构以及行为上会有细微不同</p>
+<h1 id="四种节点的具体实现"><a href="#四种节点的具体实现" class="headerlink" title="四种节点的具体实现"></a>四种节点的具体实现</h1><p>首先节点类型的变化仅发生在上溢或者下溢时，即可以/需要使用另一种类型的节点来代替。需要注意由于前缀树的特性，一个节点的最大宽度是有限的，因此并不会横向分裂成两个节点。</p>
+<h2 id="Node4-与-Node16"><a href="#Node4-与-Node16" class="headerlink" title="Node4 与 Node16"></a>Node4 与 Node16</h2>
+    <figure class="figure-image">
+      <img src="4.png" alt="Node4 and Node16" width="40%" height="100% loading="lazy" />
+      <figcaption>Node4 and Node16</figcaption>
+    </figure>
+  
+
+<p>Node4 与 Node16 在结构上面是类似的，都是由一对数量相等的数组组成，其中一个存放键，另一个存放指针。</p>
+<h2 id="Node48"><a href="#Node48" class="headerlink" title="Node48"></a>Node48</h2>
+    <figure class="figure-image">
+      <img src="5.png" alt="Node48" width="40%" height="100% loading="lazy" />
+      <figcaption>Node48</figcaption>
+    </figure>
+  
+
+<p>Node48 与前两种一样也是由两个数组组成，不过存储键的数组有256的容量，可以直接通过下标进行索引。</p>
+<h2 id="Node256"><a href="#Node256" class="headerlink" title="Node256"></a>Node256</h2>
+    <figure class="figure-image">
+      <img src="6.png" alt="Node256" width="40%" height="100% loading="lazy" />
+      <figcaption>Node256</figcaption>
+    </figure>
+  
+
+<p>Node256与Node48相比其实就是第二个数组的大小也来到了256，键与值有满射的关系，可以省略一次索引。</p>
+<h1 id="路径压缩"><a href="#路径压缩" class="headerlink" title="路径压缩"></a>路径压缩</h1><p>文中将路径压缩分成了两种情况，分别是 path compression 和 lazy expansion。 path compression 指将只有一个 key 的节点往下合并，直到需要区分多个子节点为止。lazy expansion 表示把一个节点路径上没有分叉的部分折叠起来。</p>
+
+    <figure class="figure-image">
+      <img src="7.png" alt="Two ways of path compression" width="70%" height="100% loading="lazy" />
+      <figcaption>Two ways of path compression</figcaption>
+    </figure>
+  
+
+<p>既然路径被压缩，那么在查找的时候也需要在比较 key 时进行相应的处理。文中将处理分为了两类。悲观的方式是节点储存一个长度不定的前缀值，在每次下降地时候使用这个值进行比较。乐观地方式是节点只储存被压缩地前缀地长度，在每次下降过程中直接跳过这个长度的 key 的处理，并在最后达到叶子节点时再比较 key 是否相等。文中的节点将这两种方式组合起来，在下降的时候按照前缀长度进行动态处理。</p>
+<h1 id="节点-header"><a href="#节点-header" class="headerlink" title="节点 header"></a>节点 header</h1><p>一个节点除了自己的数据域之外，还包含了一些元信息。例如节点的类型，实际容量，压缩的路径（前缀和 / 或前缀的长度）等。在文中，节点有八字节的前缀区域以及四字节的前缀长度域，即上一段提到的悲观与乐观相结合的处理方法。</p>
+<h1 id="读写操作"><a href="#读写操作" class="headerlink" title="读写操作"></a>读写操作</h1><h2 id="查询"><a href="#查询" class="headerlink" title="查询"></a>查询</h2><p>对于 Node4 采用遍历的方法，Node16 使用 SIMD 或者二分来比较当前的 key，Node48 与 Node256 分别只需进行两次 / 一次索引就能对比到前缀进行下降。<br>一个一般的查询流程为找到对应的节点进行下降或返回完成查找，对于不存在的键或者节点返回空。另外由于 path compression 的存在，可能一次下降会完成多个 bytes 的比较。<br>而 range scan 可以使用类似深搜的数次查询实现。</p>
+<h2 id="插入-删除"><a href="#插入-删除" class="headerlink" title="插入 / 删除"></a>插入 / 删除</h2><p>一般一个 key 的插入或删除可能出现几种特殊情况。发生上溢/下溢时需要进行节点的替换来完成扩/缩容；如果一次扩缩容触发了路径压缩，那么会有内部节点的新增或删除，以及节点元信息里前缀数据的调整。<br>如果一次扩容的节点是 lazy expansion 的，或者缩容导致节点的实际容量变为1，那么这条路径的长度会发生变化（以插入为例，使用一个新节点替换当前的叶子节点，这个新节点有两个叶子节点，分别为之前的以及新增的，节点的前缀也会变成两个叶子节点的 key 的重合部分）；如果新插入节点的 key 会影响一个节点的前缀，那么也会在该节点上面新增一个 inner 节点，并相应地调节前缀；其他的情况只需要进行简单的插入删除就行了。可以看到，在上述几种情况中，一次增删过程中会受到影响的节点最多仅有两个。</p>
+<h1 id="数据表示"><a href="#数据表示" class="headerlink" title="数据表示"></a>数据表示</h1><p>为了实现数据有序排列，需要能将数据类型表示成二进制可比较（binary comparable）的形式。<br>无符号整型天然满足要求，只是需要注意大小端。有符号整型需要做一次异或操作来处理补码表示法。浮点数稍微复杂一些，按照 [ 正，负 ] x [ 规格化、非规格化、NaN、∞、0 ] 分为互不重叠的十类，然后重新给 rank。对于字符串有 Unicode 定义的比较算法。</p>
+<h1 id="应用"><a href="#应用" class="headerlink" title="应用"></a>应用</h1><p>在本文的 benchmark 中可以看到，当数据的 key 分布比较密集时，ART 有着很优秀的表现。而且除了 range scan 范围读之外，ART 的 bulk load 范围写也有很大的发掘空间。</p>
+<h1 id="并发"><a href="#并发" class="headerlink" title="并发"></a>并发</h1><p>文章介绍了两种并发方案，分别是 Optimistic Lock Coupling 和 Read-Optimized Write EXclusion (ROWEX)。它们的性能很接近。</p>
+
+    <figure class="figure-image">
+      <img src="8.png" alt="Comparison of serval concurrency schemas" width="70%" height="100% loading="lazy" />
+      <figcaption>Comparison of serval concurrency schemas</figcaption>
+    </figure>
+  
+
+<h2 id="Optimistic-Lock-Coupling"><a href="#Optimistic-Lock-Coupling" class="headerlink" title="Optimistic Lock Coupling"></a>Optimistic Lock Coupling</h2><p>是在传统 Lock Coupling 方案上的一种优化。Lock Coupling 的重点在于一个操作同时最多持有两把锁，是线程同步 B-Tree 的常见做法。并且在 ART 的背景下，一次修改最多只会影响到两个节点，非常适合使用 Lock Coupling 来实现并发。但是 Lock Coupling 因为每次取得一把锁都会修改节点的内容，所以对缓存很不友好，导致其效率低下。在这里采用一种 Optimistic 的做法，即假设冲突很少出现，每次只在读完之后检测版本信息来判断有没有读到过时信息，而非预先上锁来确保互斥。如果检测到了过期信息则进行重试，为了防止饿死可以在若干次重试失败之后进行加锁。</p>
+<h2 id="ROWEX"><a href="#ROWEX" class="headerlink" title="ROWEX"></a>ROWEX</h2><p>则稍微复杂一点，它要求 writer 通过原子操作来保证 reader 不会出现脏读。这个方法也使用到了锁，不过仅针对 writer 提供互斥性，而读操作是 wait-free 并且与 Optimistic Lock Coupling 不同，是保证成功的。</p>
+<h1 id="Bench"><a href="#Bench" class="headerlink" title="Bench"></a>Bench</h1><p>在<a target="_blank" rel="noopener" href="https://dbis-informatik.uibk.ac.at/sites/default/files/2018-06/hot-height-optimized.pdf">HOT (SIGMOD 2018)</a> 的 appendix A 找到一个比较全面的 Cross Validation。TL; DR. 在数据密集查询比扫描多，写操作比重较多的情况下 ART 有很优秀的表现，纯扫表性能并不比 B-Tree 好。大量密集数据点查表现可以超过 HashTable，不过性能会受到数据分布的影响。</p>
+
+        </article>
+      </section>
+
+      
+      
+        <nav class="article-nav">
+          
+            <div class="article-nav-item layout-padding">
+  <article class="card-container article-nav-card content-padding--primary soft-size--large soft-style--box">
+    
+      <div class="card-cover" background-image-lazy data-img="/covers/sakuna-rice-and-ruin.jpg"></div>
+    
+    <div class="card-text">
+      
+        <a href="/2021/02/sakuna-rice-and-ruin/" itemprop="url">
+          <h2 class="card-text--title text-ellipsis">天穗之咲稻姬</h2>
+        </a>
+      
+      <div class="card-text--row">Newer</div>
+    </div>
+  </article>
+</div>
+          
+          
+        </nav>
+      
+
+      <section class="page-message-container layout-padding">
+        
+
+
+  
+  
+
+  
+  
+
+
+      </section>
+    </div>
+    <div class="widget-info">
+      <section class="widget-author widget-item layout-margin content-padding--primary soft-size--large soft-style--box">
+  <div class="widget-body">
+    
+      <img src="https://github.com/waynexia.png" class="soft-size--round soft-style--box" alt="Wayne">
+    
+    
+      <h2>Wayne</h2>
+    
+    
+
+    <!-- <div class="count-box">
+      <div class="count-box--item">
+        <svg class="icon icon-article" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M240.51564747 647.74217627h196.07203239c16.59071043 0 30.16492806-13.57421762 30.16492805-30.16492806V165.10332731c0-33.18142087-30.16492806-60.32985613-60.32985612-60.32985611H245.04038668C225.43318342 104.7734712 210.35071939 119.85593522 210.35071939 139.46313845V617.57724821c0 16.59071043 13.57421762 30.16492806 30.16492808 30.16492806z m663.62841731-452.47392089v482.63884894c0 33.18142087-27.14843525 60.32985613-60.32985612 60.32985613H180.18579134c-33.18142087 0-60.32985613-27.14843525-60.32985612-60.32985613V195.26825538c-49.77213131 0-90.49478418 40.72265287-90.49478417 90.49478417v452.4739209c0 49.77213131 40.72265287 90.49478418 90.49478417 90.49478417h286.56681657c16.59071043 0 30.16492806 13.57421762 30.16492807 30.16492807s13.57421762 30.16492806 30.16492805 30.16492806h90.49478418c16.59071043 0 30.16492806-13.57421762 30.16492805-30.16492806s13.57421762-30.16492806 30.16492807-30.16492807h286.56681657c49.77213131 0 90.49478418-40.72265287 90.49478417-90.49478417V285.76303955c0-49.77213131-40.72265287-90.49478418-90.49478417-90.49478417zM587.41232014 647.74217627h191.54729318c19.60720323 0 34.68966726-15.08246403 34.68966729-34.68966727V134.93839925c0-16.59071043-13.57421762-30.16492806-30.16492808-30.16492805H617.57724821c-30.16492806 0-60.32985613 27.14843525-60.32985612 60.32985611v452.4739209c0 16.59071043 13.57421762 30.16492806 30.16492805 30.16492806z" fill="currentColor"></path>
+</svg>
+        <span>9</span>
+      </div>
+      <div class="count-box--item">
+        <svg class="icon icon-categories" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M900.3614811 257.09082106h-339.81629553l-67.96326003-101.9448889c-19.41807444-29.12711113-48.54518557-43.69066667-82.52681443-43.69066667H123.6385189c-53.39970333 0-97.09036999 43.69066667-97.09037113 97.09036999v582.54222222c0 53.39970333 43.69066667 97.09036999 97.09037113 97.09037002h776.7229622c53.39970333 0 97.09036999-43.69066667 97.09037113-97.09037002V354.18119104c0-53.39970333-43.69066667-97.09036999-97.09037113-97.09036998z m-97.09036999 242.72592554H220.72888889c-24.27259221 0-48.54518557-24.27259221-48.54518556-48.54518556s24.27259221-48.54518557 48.54518556-48.54518444h582.54222222c24.27259221 0 48.54518557 24.27259221 48.54518556 48.54518444s-24.27259221 48.54518557-48.54518556 48.54518556z" fill="currentColor"></path>
+</svg>
+        0
+      </div>
+      <div class="count-box--item">
+        <svg class="icon icon-tags" viewBox="0 0 1098 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M283.42180005 272q0-28.38857157-20.09142843-48.48000001t-48.47999998-20.09142842-48.48000002 20.09142842-20.09142846 48.48000001 20.09142846 48.48 48.48000002 20.09142843 48.47999998-20.09142843 20.09142843-48.48zM855.0332285 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.03999997 263.58857157q-20.9142853 19.81714313-48.75428534 19.81714312-28.38857157 0-48.20571468-19.81714312l-383.04-383.58857157q-20.36571468-19.81714313-34.55999999-54.10285688t-14.19428534-62.6742853l0-222.85714313q0-27.84000002 20.36571469-48.20571469t48.2057147-20.36571466l222.85714313 0q28.38857157 0 62.6742853 14.19428529t54.65142842 34.55999999l383.04000001 382.49142843q19.81714313 20.9142853 19.81714314 48.75428532zM1060.74751475 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.04 263.58857157q-20.9142853 19.81714313-48.75428531 19.81714312-19.26857155 0-31.61142843-7.47428531t-28.38857159-24.13714314l251.79428534-251.7942853q19.81714313-19.81714313 19.81714308-48.20571469 0-27.84000002-19.81714308-48.75428531l-383.04000001-382.49142845q-20.36571468-20.36571468-54.65142842-34.55999999t-62.67428532-14.19428534l120 0q28.38857157 0 62.67428532 14.19428534t54.65142842 34.55999999l383.03999998 382.49142845q19.81714313 20.9142853 19.81714314 48.75428531z" fill="currentColor"></path>
+</svg>
+        5
+      </div>
+    </div> -->
+
+    
+    <div class="social-icons">
+      
+        
+      
+        
+      
+        
+      
+        
+          <a href="https://github.com/waynexia/" class="soft-size--primary" target="_blank" rel="noopener noreferrer">
+            <svg class="icon icon-github" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M64.6 512c0 195.6 125.4 361.9 300.1 422.9 23.5 5.9 19.9-10.8 19.9-22.2v-77.6c-135.8 15.9-141.3-74-150.5-89-18.5-31.5-61.9-39.5-49-54.5 31-15.9 62.5 4 98.9 58 26.4 39.1 77.9 32.5 104.1 26 5.7-23.5 17.9-44.5 34.7-60.9-140.7-25.2-199.4-111.1-199.4-213.3 0-49.5 16.4-95.1 48.4-131.8-20.4-60.6 1.9-112.4 4.9-120.1 58.2-5.2 118.5 41.6 123.3 45.3 33.1-8.9 70.8-13.7 112.9-13.7 42.4 0 80.3 4.9 113.5 13.9 11.3-8.6 67.3-48.8 121.4-43.9 2.9 7.7 24.7 58.3 5.5 118.1 32.5 36.8 49 82.8 49 132.4 0 102.3-59 188.3-200.2 213.2 23.5 23.3 38.1 55.5 38.1 91.1v112.7c0.8 9 0 17.9 15.1 17.9C832.7 877 960.4 709.4 960.4 512.1c0-247.5-200.6-447.9-447.9-447.9C265 64.1 64.6 264.5 64.6 512z"></path>
+</svg>
+          </a>
+        
+      
+        
+          <a href="https://twitter.com/wayne17229928" class="soft-size--primary" target="_blank" rel="noopener noreferrer">
+            <svg class="icon icon-twitter" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M962.285714 233.142857q-38.285714 56-92.571429 95.428571 0.571429 8 0.571429 24 0 74.285714-21.714286 148.285714t-66 142-105.428571 120.285714-147.428571 83.428571-184.571429 31.142857q-154.857143 0-283.428571-82.857143 20 2.285714 44.571429 2.285714 128.571429 0 229.142857-78.857143-60-1.142857-107.428571-36.857143t-65.142857-91.142857q18.857143 2.857143 34.857143 2.857143 24.571429 0 48.571429-6.285714-64-13.142857-106-63.714286t-42-117.428571l0-2.285714q38.857143 21.714286 83.428571 23.428571-37.714286-25.142857-60-65.714286t-22.285714-88q0-50.285714 25.142857-93.142857 69.142857 85.142857 168.285714 136.285714t212.285714 56.857143q-4.571429-21.714286-4.571429-42.285714 0-76.571429 54-130.571429t130.571429-54q80 0 134.857143 58.285714 62.285714-12 117.142857-44.571429-21.142857 65.714286-81.142857 101.714286 53.142857-5.714286 106.285714-28.571429z"></path>
+</svg>
+          </a>
+        
+      
+        
+          <a href="https://twitter.com/wayne17229928" class="soft-size--primary" target="_blank" rel="noopener noreferrer">
+            <svg class="icon icon-mastodon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <path d="M433 179.11c0-97.2-63.71-125.7-63.71-125.7-62.52-28.7-228.56-28.4-290.48 0 0 0-63.72 28.5-63.72 125.7 0 115.7-6.6 259.4 105.63 289.1 40.51 10.7 75.32 13 103.33 11.4 50.81-2.8 79.32-18.1 79.32-18.1l-1.7-36.9s-36.31 11.4-77.12 10.1c-40.41-1.4-83-4.4-89.63-54a102.54 102.54 0 0 1-.9-13.9c85.63 20.9 158.65 9.1 178.75 6.7 56.12-6.7 105-41.3 111.23-72.9 9.8-49.8 9-121.5 9-121.5zm-75.12 125.2h-46.63v-114.2c0-49.7-64-51.6-64 6.9v62.5h-46.33V197c0-58.5-64-56.6-64-6.9v114.2H90.19c0-122.1-5.2-147.9 18.41-175 25.9-28.9 79.82-30.8 103.83 6.1l11.6 19.5 11.6-19.5c24.11-37.1 78.12-34.8 103.83-6.1 23.71 27.3 18.4 53 18.4 175z"></path>
+</svg>
+
+          </a>
+        
+      
+      
+        <a rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
+          <svg class="icon icon-rss" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path d="M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM96 136c0-13.3 10.7-24 24-24c137 0 248 111 248 248c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-110.5-89.5-200-200-200c-13.3 0-24-10.7-24-24zm0 96c0-13.3 10.7-24 24-24c83.9 0 152 68.1 152 152c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-57.4-46.6-104-104-104c-13.3 0-24-10.7-24-24zm64 120c0 17.7-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32s32 14.3 32 32z"></path>
+</svg>
+        </a>
+      
+    </div>
+     
+    
+  </div>
+</section>
+
+      <!--  -->
+
+      <!-- <section class="widget-categorys widget-item layout-margin content-padding--primary soft-size--large soft-style--box">
+  <div class="widget-title">
+    <svg class="icon icon-categories" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M900.3614811 257.09082106h-339.81629553l-67.96326003-101.9448889c-19.41807444-29.12711113-48.54518557-43.69066667-82.52681443-43.69066667H123.6385189c-53.39970333 0-97.09036999 43.69066667-97.09037113 97.09036999v582.54222222c0 53.39970333 43.69066667 97.09036999 97.09037113 97.09037002h776.7229622c53.39970333 0 97.09036999-43.69066667 97.09037113-97.09037002V354.18119104c0-53.39970333-43.69066667-97.09036999-97.09037113-97.09036998z m-97.09036999 242.72592554H220.72888889c-24.27259221 0-48.54518557-24.27259221-48.54518556-48.54518556s24.27259221-48.54518557 48.54518556-48.54518444h582.54222222c24.27259221 0 48.54518557 24.27259221 48.54518556 48.54518444s-24.27259221 48.54518557-48.54518556 48.54518556z" fill="currentColor"></path>
+</svg>
+    <span>CATEGORYS</span>
+  </div>
+  <div class="widget-body">
+    <ul class="categorys-list">
+      
+    </ul>
+  </div>
+</section> -->
+
+      <section class="widget-tags widget-item  layout-margin content-padding--primary soft-size--large soft-style--box">
+  <div class="widget-title">
+    <svg class="icon icon-tags" viewBox="0 0 1098 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M283.42180005 272q0-28.38857157-20.09142843-48.48000001t-48.47999998-20.09142842-48.48000002 20.09142842-20.09142846 48.48000001 20.09142846 48.48 48.48000002 20.09142843 48.47999998-20.09142843 20.09142843-48.48zM855.0332285 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.03999997 263.58857157q-20.9142853 19.81714313-48.75428534 19.81714312-28.38857157 0-48.20571468-19.81714312l-383.04-383.58857157q-20.36571468-19.81714313-34.55999999-54.10285688t-14.19428534-62.6742853l0-222.85714313q0-27.84000002 20.36571469-48.20571469t48.2057147-20.36571466l222.85714313 0q28.38857157 0 62.6742853 14.19428529t54.65142842 34.55999999l383.04000001 382.49142843q19.81714313 20.9142853 19.81714314 48.75428532zM1060.74751475 580.57142843q0 28.38857157-19.81714313 48.2057147l-263.04 263.58857157q-20.9142853 19.81714313-48.75428531 19.81714312-19.26857155 0-31.61142843-7.47428531t-28.38857159-24.13714314l251.79428534-251.7942853q19.81714313-19.81714313 19.81714308-48.20571469 0-27.84000002-19.81714308-48.75428531l-383.04000001-382.49142845q-20.36571468-20.36571468-54.65142842-34.55999999t-62.67428532-14.19428534l120 0q28.38857157 0 62.67428532 14.19428534t54.65142842 34.55999999l383.03999998 382.49142845q19.81714313 20.9142853 19.81714314 48.75428531z" fill="currentColor"></path>
+</svg>
+    <span>Tags</span>
+  </div>
+  <div class="widget-body">
+    <div class="tags-cloud">
+      <!-- <a href="/tags/Device/" style="font-size: 10px;" class="tags-cloud-0">Device</a> <a href="/tags/Experience/" style="font-size: 16.67px;" class="tags-cloud-7">Experience</a> <a href="/tags/Game/" style="font-size: 13.33px;" class="tags-cloud-3">Game</a> <a href="/tags/Paper-Reading/" style="font-size: 13.33px;" class="tags-cloud-3">Paper Reading</a> <a href="/tags/Rust/" style="font-size: 20px;" class="tags-cloud-10">Rust</a> -->
+      
+          <a href="/tags/Paper-Reading/">
+            Paper Reading (2)
+          </a>
+      
+          <a href="/tags/Rust/">
+            Rust (4)
+          </a>
+      
+          <a href="/tags/Experience/">
+            Experience (3)
+          </a>
+      
+          <a href="/tags/Device/">
+            Device (1)
+          </a>
+      
+          <a href="/tags/Game/">
+            Game (2)
+          </a>
+      
+    </div>
+  </div>
+</section>
+
+      <!-- todo: only sticky TOC list -->
+      
+<section class="widget-toc widget-item layout-margin content-padding--primary soft-size--large soft-style--box sticky_element">
+  <div class="widget-title">
+    <svg class="icon icon-toc" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <path d="M134.50666666 767.46666668H460.8c27.73333333 0 50.24000001 22.50666668 50.24000001 50.23999999v50.13333333c0 27.73333333-22.50666668 50.24000001-50.24000001 50.24000001H134.50666666c-27.73333333 0-50.24000001-22.50666668-50.23999999-50.24000001v-50.13333333c0.10666668-27.73333333 22.50666668-50.24000001 50.24000001-50.24000001zM84.37333332 541.65333333h326.18666669c27.73333333 0 50.24000001 22.39999999 50.23999999 50.13333334v50.24000001c0 27.73333333-22.50666668 50.24000001-50.24000002 50.23999999H84.37333332c-27.73333333 0-50.24000001-22.50666668-50.23999999-50.23999999v-50.24000001c0-27.73333333 22.50666668-50.13333334 50.24000001-50.13333334zM134.50666666 315.83999999H460.8c27.73333333 0 50.24000001 22.50666668 50.24000001 50.24000001v50.24000001c0 27.73333333-22.50666668 50.13333334-50.24000001 50.13333333H134.50666666c-27.73333333 0-50.24000001-22.39999999-50.23999999-50.13333333v-50.24000001c0.10666668-27.84000001 22.50666668-50.24000001 50.24000001-50.23999999zM209.81333332 89.91999999h326.18666671c27.73333333 0 50.24000001 22.39999999 50.23999997 50.13333335v50.23999999c0 27.73333333-22.50666668 50.24000001-50.24000001 50.24000001H209.81333332c-27.73333333 0-50.24000001-22.50666668-50.23999999-50.24000001v-50.24000001c0-27.73333333 22.50666668-50.13333334 50.24000001-50.13333333zM692.05333333 623.36l274.66666669 176.00000002c23.36000001 14.93333333 30.08 45.97333334 15.14666666 69.33333332L954.77333334 910.93333333c-14.93333333 23.25333334-45.97333334 30.08-69.33333335 15.14666667l-274.66666666-176c-23.36000001-14.93333333-30.08-45.97333334-15.14666667-69.33333333l27.09333334-42.24000001c14.93333333-23.36000001 46.08000001-30.08 69.33333333-15.14666666z" fill="currentColor"></path>
+</svg>
+    <span>Content</span>
+  </div>
+  <div class="widget-body">
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-ART"><span class="toc-text">什么是 ART ?</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9F%BA%E6%95%B0%E6%A0%91"><span class="toc-text">基数树</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Adaptive-Node"><span class="toc-text">Adaptive Node</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E7%A7%8D%E8%8A%82%E7%82%B9%E7%9A%84%E5%85%B7%E4%BD%93%E5%AE%9E%E7%8E%B0"><span class="toc-text">四种节点的具体实现</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Node4-%E4%B8%8E-Node16"><span class="toc-text">Node4 与 Node16</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Node48"><span class="toc-text">Node48</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Node256"><span class="toc-text">Node256</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%B7%AF%E5%BE%84%E5%8E%8B%E7%BC%A9"><span class="toc-text">路径压缩</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%8A%82%E7%82%B9-header"><span class="toc-text">节点 header</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%AF%BB%E5%86%99%E6%93%8D%E4%BD%9C"><span class="toc-text">读写操作</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9F%A5%E8%AF%A2"><span class="toc-text">查询</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8F%92%E5%85%A5-%E5%88%A0%E9%99%A4"><span class="toc-text">插入 &#x2F; 删除</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E8%A1%A8%E7%A4%BA"><span class="toc-text">数据表示</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%BA%94%E7%94%A8"><span class="toc-text">应用</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B9%B6%E5%8F%91"><span class="toc-text">并发</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Optimistic-Lock-Coupling"><span class="toc-text">Optimistic Lock Coupling</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ROWEX"><span class="toc-text">ROWEX</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Bench"><span class="toc-text">Bench</span></a></li></ol>
+  </div>
+</section>
+
+
+    </div>
+  </article>
+</div>
+
+    <!-- footer container -->
+<footer id="footer" class="footer">
+  <div class="footer-container">
+    <p>
+      &copy; 2023 <a href="/" target="_blank">Wayne</a>
+      
+        |
+        <a rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
+          <svg class="icon icon-rss" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <path d="M64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zM96 136c0-13.3 10.7-24 24-24c137 0 248 111 248 248c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-110.5-89.5-200-200-200c-13.3 0-24-10.7-24-24zm0 96c0-13.3 10.7-24 24-24c83.9 0 152 68.1 152 152c0 13.3-10.7 24-24 24s-24-10.7-24-24c0-57.4-46.6-104-104-104c-13.3 0-24-10.7-24-24zm64 120c0 17.7-14.3 32-32 32s-32-14.3-32-32s14.3-32 32-32s32 14.3 32 32z"></path>
+</svg>
+        </a>
+      
+    </p>
+
+    
+
+    <p>Powered by <a href="https://hexo.io" target="_blank" rel="noopener noreferrer">Hexo</a> - <a href="https://github.com/waynexia/flexblock-modified" target="_blank" rel="noopener noreferrer author">This theme</a> is customized from <a href="https://github.com/miiiku/flex-block" target="_blank" rel="noopener noreferrer author">flex-block</a></p>
+
+  </div>
+</footer>
+  </div>
+
+  <div class="back-to-top-fixed soft-size--round soft-style--box">
+    <svg class="icon icon-back-to-top" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+      <path d="M725.333333 426.666667c-12.8 0-21.333333-4.266667-29.866667-12.8l-213.333333-213.333333c-17.066667-17.066667-17.066667-42.666667 0-59.733333s42.666667-17.066667 59.733333 0l213.333333 213.333333c17.066667 17.066667 17.066667 42.666667 0 59.733333C746.666667 422.4 738.133333 426.666667 725.333333 426.666667z"></path>
+      <path d="M298.666667 426.666667c-12.8 0-21.333333-4.266667-29.866667-12.8-17.066667-17.066667-17.066667-42.666667 0-59.733333l213.333333-213.333333c17.066667-17.066667 42.666667-17.066667 59.733333 0s17.066667 42.666667 0 59.733333l-213.333333 213.333333C320 422.4 311.466667 426.666667 298.666667 426.666667z"></path>
+      <path d="M512 896c-25.6 0-42.666667-17.066667-42.666667-42.666667L469.333333 170.666667c0-25.6 17.066667-42.666667 42.666667-42.666667s42.666667 17.066667 42.666667 42.666667l0 682.666667C554.666667 878.933333 537.6 896 512 896z"></path>
+    </svg>
+  </div>
+
+  
+  <!-- aplayer -->
+
+
+<!-- dplayer -->
+
+
+
+
+  
+
+
+  
+
+
+  
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+  
+  <!-- 尾部用户自定义相关内容 -->
+</body>
+</html>
