@@ -24,7 +24,7 @@
 
   
 
-  <title>reMarkable2 使用体验 | Wonderland</title>
+  <title>Querying Prometheus | Wonderland</title>
 
   
     <link rel="alternate" href="/atom.xml" title="Wonderland" type="application/atom+xml">
@@ -51,7 +51,7 @@
 <!-- header container -->
 <header class="header-container post">
   
-    <div class="post-image" style="background-image: url(/covers/remarkable2.jpg)"></div>
+    <div class="post-image" style="background-image: url(/covers/querying-prometheus.svg)"></div>
   
 
   <!-- navbar -->
@@ -106,20 +106,16 @@
     <div class="header-content">
       <div class="post-text layout-block">
         <div class="layout-margin">
-          <h1 class="title-wrap">reMarkable2 使用体验</h1>
+          <h1 class="title-wrap">Querying Prometheus</h1>
           <h2 class="title-sub-wrap">
             <strong>Wayne</strong>
             <span>write on</span>
-            <time  class="article-date" datetime="2022-05-04T01:37:44.000Z" itemprop="datePublished">2022-05-04</time>
+            <time  class="article-date" datetime="2023-11-23T16:13:33.000Z" itemprop="datePublished">2023-11-23</time>
           </h2>
           <ul class="wrap-list dark">
   
 </ul>
           <ul class="wrap-list dark">
-  
-    <li><a href="/tags/Experience/">🏷️ Experience</a></li>
-  
-    <li><a href="/tags/Device/">🏷️ Device</a></li>
   
 </ul>
         </div>
@@ -170,49 +166,41 @@
               const heti = new Heti('.heti');
               heti.autoSpacing();
             </script>
-          <p><em>题图来自<a href="remarkable.com">remarkable.com</a></em></p>
-<h1 id="又一次广告投放"><a href="#又一次广告投放" class="headerlink" title="又一次广告投放"></a>又一次广告投放</h1><p>知道reMarkable2是在某天刷推的时候看见了他们投放的广告，看了两天之后就剁手了，非常冲动。之前怀疑广告是不是真的那么有用，最后没想到电视购物的竟是我自己。</p>
-<p>一直觉得看PDF很不爽。手上的设备有太小的kindle，太重的surface和没感觉的电脑屏幕。一直有点想再整一个，但是也一直没特别想下手。dpt-rp1看起来确实也很不错，不一定要墨水屏所以pad也在考虑范围。这种情况下可能接下来应该说的是reMarkable2为什么不一样，可惜的是我也不知道为什么。它的几个亮点比如薄和手写体验对我都只算“有了更好，没有也无所谓”的范畴，只能说是广告投放的成功吧。</p>
-<h1 id="槽点"><a href="#槽点" class="headerlink" title="槽点"></a>槽点</h1><p>因为入手的时候对它的期望更偏向于一个阅读器，开箱用了几天就有好多想吐槽的地方……</p>
+          <p>Explain PromQL in simple SQL that you are familiar with.</p>
+<blockquote>
+<p>This blog is work-in-progress. But you can still read and discuss it with me.</p>
+</blockquote>
+<p>Planned content:</p>
 <ul>
-<li><p>翻盖死贵但是功能非常少。<br>我觉得这个盖子就是一个带两块磁铁的壳，完全不能算是电子配件。机身侧面留有几个金属触点，但是这个壳对应的位置居然什么都没有。而且壳本身封面有磁吸，但是机器不能响应翻盖动作……让按键焦虑的人非常难受。</p>
-</li>
-<li><p>没有背光灯。<br>两代都没有，不知道有什么特别的原因。在我的桌面环境上只有一个屏幕灯，所以当晚上靠在椅子上不开额外光源基本不能看。经过了一个阴天，室内光线稍微暗一点就要开顶灯使用了。</p>
-</li>
-<li><p>屏幕分辨率低。<br>这个主推的是像真纸一样的书写体验，但是谁的纸能够……写出锯齿？设备第一次开机的第一个环节就是让你拿笔体验一下，结果我一划拉出来一条锯齿，当场蚌埠住了。</p>
-</li>
-<li><p>软件（固件）体验很差，这个分两方面。</p>
-<ul>
-<li>首先我觉得这个系统（v2.12.3）的基本功能是缺失的，比如笔居然不支持调节压感灵敏度，导致我在习惯的力道下只有一种笔触能使用;而且你甚至不能在PDF上选择文字，such a REMARKABLE tablet。</li>
-<li>以及不那么基本的功能也是缺失的（对于不想每个月再多掏58.88 hkd且不想折腾用户来说）。邮件传输、三方存储和屏幕分享这些功能都被<em>remarkable.com</em>列为了付费订阅内容。</li>
+<li>select data</li>
+<li>operations</li>
+<li>format in storage</li>
+<li>joins, group and set operation</li>
+<li>get distributed</li>
+<li>extension on types and operations</li>
+<li>counter, histogram and summary</li>
 </ul>
-</li>
-</ul>
-<h1 id="还不错的地方"><a href="#还不错的地方" class="headerlink" title="还不错的地方"></a>还不错的地方</h1><p>主要使用场景是拿来看PDF，比起我的voyage确实大了不少，屏幕小是voyage看不来的唯一因素。但是实际拿A4纸比了下才发现rm2也只仅仅比A5尺寸稍宽一些，但是裁掉页面边缘的留白之后也能够很舒服地展示一页纸的内容了，当然字还是变小了一些。</p>
+<h1 id="Select-data"><a href="#Select-data" class="headerlink" title="Select data"></a>Select data</h1><p>Prometheus collects data in an unreliable way. The data process pipeline has considered and brings lots of “special logic” to make those unreliable data look reasonable and intuitive. But as the price, that logic might not be straightforward as a traditional SQL-based database. This section includes lookback,  null-handling, offset, interval.</p>
+<p>Notice that those mechanisms always take effort together. To keep the explanation dry, other cases are ignored when explaining one (E.g., “offset” section assumes there is no “lookback”).</p>
+<h2 id="offset"><a href="#offset" class="headerlink" title="offset"></a>offset</h2><p>This is the simplest one. Offset is used to “bias” the data’s timestamp – every data point in Prometheus has a related timestamp, as well as the query itself. In SQL, the table (Prometheus names it “metric”) looks just like this:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE</span> <span class="hljs-keyword">TABLE</span> metric (<br>ts, <span class="hljs-type">timestamp</span>(<span class="hljs-number">3</span>) <span class="hljs-keyword">NOT</span> <span class="hljs-keyword">NULL</span>,<br>    v, <span class="hljs-keyword">double</span>,<br>    tag_1 string,<br>    tag_2 string,<br>    ...<br>    <span class="hljs-keyword">PRIMARY</span> KEY (tag_1, tag_2, ...),<br>);<br></code></pre></td></tr></table></figure>
+<p>The <code>offset</code> provides a way to <strong>push backward</strong> (toward an earlier time) the time range of querying:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> ... <span class="hljs-keyword">FROM</span> metric <span class="hljs-keyword">WHERE</span> ts <span class="hljs-operator">&gt;=</span> (<span class="hljs-keyword">START</span> <span class="hljs-operator">-</span> <span class="hljs-keyword">OFFSET</span>) <span class="hljs-keyword">and</span> ts <span class="hljs-operator">&lt;</span> (<span class="hljs-keyword">END</span> <span class="hljs-operator">-</span> <span class="hljs-keyword">OFFSET</span>);<br></code></pre></td></tr></table></figure>
+<p>For example, if we query data between <code>2023-11-14T18:00:00Z</code> and <code>2023-11-14T22:00:00Z</code>, and with “1h” offset, the equal SQL would be something like below:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> ... <span class="hljs-keyword">FROM</span> metric <span class="hljs-keyword">WHERE</span> ts <span class="hljs-operator">&gt;=</span> <span class="hljs-string">&#x27;2023-11-14T17:00:00Z&#x27;</span> <span class="hljs-keyword">AND</span> ts <span class="hljs-operator">&lt;</span> <span class="hljs-string">&#x27;2023-11-14T21:00:00Z&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>Another point is the offset can be negative. In this case, you are just “minus a negative”</p>
+<h2 id="interval"><a href="#interval" class="headerlink" title="interval"></a>interval</h2><p>You might be wondering why the results from Prometheus step are aligned to the given resolution but not the data collection interval. Here is an example result part I get with <code>7s</code> resolution:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs plaintext">[   ...,<br>    [1700635385,&quot;1&quot;],<br>    [1700635392,&quot;1&quot;],<br>    [1700635399,&quot;1&quot;],<br>    [1700635406,&quot;1&quot;],<br>    [1700635413,&quot;1&quot;],<br>    ...<br>]<br></code></pre></td></tr></table></figure>
 
-    <figure class="figure-image">
-      <img src="compare.jpg" alt="和kindle voyage以及A5纸的对比。基本只比A5宽几毫米" width="100%" height="100% loading="lazy" />
-      <figcaption>和kindle voyage以及A5纸的对比。基本只比A5宽几毫米</figcaption>
-    </figure>
-  
+<p>That’s because Prometheus doesn’t generate timestamp directly from the data’s timestamp, but in a reversed way, where the timestamp in the result is determined first, then finds values suited for that timestamp and feeds them into calculate operators. The <code>interval</code> is one of the key parameters for determining the timestamps in result. It works very simply – if we use a <code>for</code> loop to simulate this behavior, it would be</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs cpp"><span class="hljs-keyword">for</span> (ts = start; ts &lt; end; ts += interval) &#123;&#125;<br></code></pre></td></tr></table></figure>
 
-<p>在这之前想要在kindle上看纸舒服一点，尝试过各种方式试图重排PDF来适应kindle，也许简单地裁一下加上横屏就能让体验提升不少。</p>
-<p>拿着笔的时候会自然地想写写画画。写得太丑就不展示了，画就像下面这样，非常艺术。仔细研究了一下为什么在板子上面写字就这么难看，最后得出的结论是板子的问题<del>，真的</del>。因为屏幕有一定厚度，笔尖接触到的位置和设备画出笔触的位置之间存在一个垂直上的距离。如果眼睛看板子的时候与板平面法线存在一个角度，就会在视觉上带来一个笔尖和笔触的偏差量，感觉最明显的是画画的时候你很难让两条线完美地连接起来，因为你觉得你应该落笔的地方并不是带电碳粉出来的位置。甚至在Reddit上看到一个advice，如果你是右撇子的话可以尝试将设备的偏好设置调到左撇子，这样系统对笔触进行的修正能够减轻这个偏移现象。</p>
+<h2 id="lookback"><a href="#lookback" class="headerlink" title="lookback"></a>lookback</h2><p>Also, unlike SQL where filter filters the “exact” what you require, PromQL will take its liberty to find data out the range of your query and present them to you. This behavior is called “lookback”, looking at a larger range and fetching data for calculation.<br>For example, if the current timestamp we are calculating is <code>1700000000</code> (<code>2023-11-14T22:13:20Z</code>), and lookback delta is ‘5m’ (300s). The filter is not <code>WHERE ts = 1700000000</code>, but this:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> ... <span class="hljs-keyword">FROM</span> metric <span class="hljs-keyword">WHERE</span> ts <span class="hljs-operator">&gt;=</span> <span class="hljs-number">1699999700</span> <span class="hljs-keyword">AND</span> ts <span class="hljs-operator">&lt;=</span> <span class="hljs-number">1700000000</span>;<br></code></pre></td></tr></table></figure>
 
-    <figure class="figure-image">
-      <img src="doraemon.png" alt="画" width="100%" height="100% loading="lazy" />
-      <figcaption>画</figcaption>
-    </figure>
-  
-
-<p>而我的对于为什么写字会变丑的结论是，在我写字的时候手会尝试去弥补这个偏差量从而导致写出来的东西变形<del>（逐渐远离小标题）</del>。</p>
-<p>因为画画技能实在太差，不太好说真拿这个当画板会是什么体验，不过还是要提一下用了一段时间感觉到的这个设备在软件方面难得做了的一件提升体验的功能。在用笔编辑的时候可以使用图层功能，比如上面的Doraemon和Nobita就是先画好眼眶，再拉到另一个图层去涂眼珠子，可以防止用橡皮擦的时候把其他已经画好的地方擦掉。</p>
-<p>不过在导出到别的设备上的时候会发现笔迹有些奇怪，有点喷粉颜料的感觉。就是从瓶子里面喷出来是粉末，拿火加热一下就会融化成颜料镀膜的那种。在设备上看起来只是比较浅的笔迹，导出来之后会变得奇怪地圆润起来。</p>
-<h1 id="Workflow"><a href="#Workflow" class="headerlink" title="Workflow"></a>Workflow</h1><p>如果是看纸的话就边看边写写画画，不过由于手写识别差不多就是只有英文，所以得要赛博誊写一下。从白纸开始的草稿就当作是写在纸上了，最后还是拿画图板重新画一次（当然手绘的东西也太难看而不能直接拿出来用）。拿这个写写画画的时候体验还行，不同的事情单独开不一样笔记本，可以避免过了一段时间望着一堆纸头痛，现在桌面基本可以不用放a4纸了。</p>
-<p>也许因为connect是他们后面加的功能，所以在21年10月之前买的可以获得无限的free connect权限。但是他认证购买信息的方式非常原始，是让你提供订单邮件的订单号他们来人工确认，于是找当时购买的店家要了个老订单通过了验证（店家直接给了我一个两年前的订单，邮件上面写的是第四批货……）。而connect解锁的功能我觉得比较有用的就几个：文件同步、邮件发送以及三方存储集成。如果没有connect订阅的话超过五十天没有打开的文件就永远不会同步，这显然是有些影响使用了;而邮件发送和三方存储都能够比较方便地导入导出阅读材料和涂鸦。不过如果完全没有connect的话也能通过usb和电脑连接来有线传输，所以备份起来也还行。</p>
-<h1 id="reHackable"><a href="#reHackable" class="headerlink" title="reHackable"></a>reHackable</h1><p>reMarkable的系统是一个叫做<code>Codex</code>的linux系统，通过usb连接上就会开放一个remote terminal给你，可能是比较开放所以有许多三方创作的各种工具来增强使用体验，<a target="_blank" rel="noopener" href="https://github.com/reHackable/awesome-reMarkable">Awesome reMarkable</a>是一个awesome列表，可以找到许多有趣的东西。比如拿来拉小清单的<a target="_blank" rel="noopener" href="https://recalendar.me/">recalender</a>，以及看起来可以完全自建connect服务的<a target="_blank" rel="noopener" href="https://github.com/ddvk/rmfakecloud">rmfakecloud</a>，甚至还有一个包管理器<a target="_blank" rel="noopener" href="https://toltec-dev.org/">Toltec</a>。活跃的hack带来了跟官方克扣feature完全不一样的体验，虽然没有实际用上几个但是看着很舒服……</p>
-<h1 id="最后"><a href="#最后" class="headerlink" title="最后"></a>最后</h1><p>最后还是想强调一下看PDF的需求体验最好也最便宜的方案还是打印出来。<del>唯一只有电子阅读器能够带来的是和阅读无关的花钱的快感</del></p>
-<p>最近也在商场闲逛的时候体验了一些其他品牌的墨水屏，感觉reMarkable的价格还是太没优势了。用差不多一半的钱就能买到差不多的书写体验以及也许会是加分项的网络和同步体验，如果再让我选一次可能还是会重新纠结一下的。</p>
+<p>That is, Prometheus will take up to 5 minutes of data into consideration when calculating one data point.</p>
+<h2 id="null-handling"><a href="#null-handling" class="headerlink" title="null handling"></a>null handling</h2><p>TODO</p>
+<h2 id="don’t-repeat"><a href="#don’t-repeat" class="headerlink" title="don’t repeat"></a>don’t repeat</h2><p>Though Prometheus will try its best to find data, but it won’t grab a repeated dataset for calculation, where all the points are the same, i.e., it won’t repeat on one point to fill absent timestamps.</p>
 
         </article>
       </section>
@@ -221,30 +209,16 @@
       
         <nav class="article-nav">
           
-            <div class="article-nav-item layout-padding">
-  <article class="card-container article-nav-card content-padding--primary soft-size--large soft-style--box">
-    
-    <div class="card-text">
-      
-        <a href="/2022/06/tpc-practice/" itemprop="url">
-          <h2 class="card-text--title text-ellipsis">CeresDB 的单线程模型实践 (Rust China Conf 2022)</h2>
-        </a>
-      
-      <div class="card-text--row">Newer</div>
-    </div>
-  </article>
-</div>
-          
           
             <div class="article-nav-item layout-padding">
   <article class="card-container article-nav-card content-padding--primary soft-size--large soft-style--box">
     
-      <div class="card-cover" background-image-lazy data-img="/covers/subnautica-below-zero.png"></div>
+      <div class="card-cover" background-image-lazy data-img="/covers/atomic-heart.jpeg"></div>
     
     <div class="card-text">
       
-        <a href="/2022/03/subnautica-below-zero/" itemprop="url">
-          <h2 class="card-text--title text-ellipsis">深海迷航：冰点之下</h2>
+        <a href="/2023/08/atomic-heart/" itemprop="url">
+          <h2 class="card-text--title text-ellipsis">原子之心</h2>
         </a>
       
       <div class="card-text--row">Older</div>
@@ -408,7 +382,7 @@
     <span>Content</span>
   </div>
   <div class="widget-body">
-    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%88%E4%B8%80%E6%AC%A1%E5%B9%BF%E5%91%8A%E6%8A%95%E6%94%BE"><span class="toc-text">又一次广告投放</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A7%BD%E7%82%B9"><span class="toc-text">槽点</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%98%E4%B8%8D%E9%94%99%E7%9A%84%E5%9C%B0%E6%96%B9"><span class="toc-text">还不错的地方</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Workflow"><span class="toc-text">Workflow</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#reHackable"><span class="toc-text">reHackable</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%80%E5%90%8E"><span class="toc-text">最后</span></a></li></ol>
+    <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Select-data"><span class="toc-text">Select data</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#offset"><span class="toc-text">offset</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#interval"><span class="toc-text">interval</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#lookback"><span class="toc-text">lookback</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#null-handling"><span class="toc-text">null handling</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#don%E2%80%99t-repeat"><span class="toc-text">don’t repeat</span></a></li></ol></li></ol>
   </div>
 </section>
 
