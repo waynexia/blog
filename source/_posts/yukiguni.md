@@ -418,7 +418,7 @@ City walk 的时候偶然看到雪面上有两条印子，走进了才发现是�
 
 {%  image
     url="ooyuki.avif"
-    title="三段淹公园"
+    title="三段滝公园"
 %}
 
 </div>
