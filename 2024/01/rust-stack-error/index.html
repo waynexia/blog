@@ -267,6 +267,7 @@
 <p>In this post, we present how to implement a proc-macro <a target="_blank" rel="noopener" href="https://greptimedb.rs/common_macro/attr.stack_trace_debug.html"><code>stack_trace_debug</code></a> and use it to assemble a low-overhead and powerful stack error message. It also provides a convenient way to walk through the error chain, to help render the error in different schema for different purposes.</p>
 <p>This macro is only adopted in GreptimeDB now, we are attempting to make it more generic for different projects. A wide adoption of this pattern can also make it even more powerful by bringing more third-party stacks and detailed reasons.</p>
 <p>An unstable API <a target="_blank" rel="noopener" href="https://doc.rust-lang.org/std/error/trait.Error.html#method.provide"><code>provide</code></a> in std <code>Error</code> allows getting a field in a struct. It’s an option we can consider for refactoring our stack-trace utils.</p>
+<p><em>Discussion on hackernews: <a target="_blank" rel="noopener" href="https://news.ycombinator.com/item?id=42457515">https://news.ycombinator.com/item?id=42457515</a></em></p>
 
         </article>
       </section>
