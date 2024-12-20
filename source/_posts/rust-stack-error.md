@@ -225,3 +225,5 @@ In this post, we present how to implement a proc-macro [`stack_trace_debug`](htt
 This macro is only adopted in GreptimeDB now, we are attempting to make it more generic for different projects. A wide adoption of this pattern can also make it even more powerful by bringing more third-party stacks and detailed reasons.
 
 An unstable API [`provide`](https://doc.rust-lang.org/std/error/trait.Error.html#method.provide) in std `Error` allows getting a field in a struct. It's an option we can consider for refactoring our stack-trace utils.
+
+*Discussion on hackernews: https://news.ycombinator.com/item?id=42457515*
